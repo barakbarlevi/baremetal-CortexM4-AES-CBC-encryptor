@@ -1,4 +1,4 @@
-#include "core/ring-buffer.h"kj
+#include "core/ring-buffer.h"
 
 /**
  * @param size Assumed to be a power of 2

@@ -23,6 +23,12 @@ static comms_packet_t last_transmitted_packet = { .length = 0, .data = {0}, .crc
 // Not using the ring buffer data structure that we've already implemented is that this time, the data we're buffering
 // isn't just a single byte, but of comms_packet_t.
 // NOTE: This is a classic motivation example for c++ templates...
+// NOTE: The only time we're ever writing packets is when we're in comms_update().
+//       The only time we're ever reading packets is when XXXX another part of the firmware XXXX.
+//       As long as it's kept this way, we don't even have to worry about interrupts and ISRs here. We know
+//       That the calls to read and write (packet) - corresponding to pulling data out of the ring buffer and pushing data into it,
+//       are not expected to have to deal with ocncurrency issues. They will for sure happen sequentially. Since we're doing bare
+//       metal rather then dealing with a RTOS, we don't have context switching. If we did, we would have had to deal with concurreny issues.
 static comms_packet_t packet_buffer[PACKET_BUFFER_LENGTH];
 static uint32_t packet_read_index = 0;
 static uint32_t packet_write_index = 0;
@@ -76,15 +82,16 @@ void comms_setup(void) {
 }
 
 bool comms_packets_available(void) {
-
+    return (packet_read_index != packet_write_index);
 }
 
 void comms_write(comms_packet_t* packet) {
-
+    uart_write((uint8_t*)packet, PACKET_LENGTH);
 }
 
 void comms_read(comms_packet_t* packet) {
-
+    comms_packet_copy(&packet_buffer[packet_read_index], packet);
+    packet_read_index = (packet_read_index + 1) & packet_buffer_mask;       // Increment read index with wrap-around
 }
 
 void comms_update(void) {
@@ -126,8 +133,14 @@ void comms_update(void) {
                     break;
                 }
 
-                
-
+                uint32_t next_write_index = (packet_write_index + 1) & packet_buffer_mask;  // Increment write index with wrap-around
+                if (next_write_index == packet_read_index) {
+                    __asm__("BKPT #0");
+                }                                                                           // For debugging purposes
+                comms_packet_copy(&temporary_packet, &packet_buffer[packet_write_index]);   // Writing packet into the ring buffer
+                packet_write_index = next_write_index;
+                comms_write(&ack_packet);                                                   // Send ACK
+                state = CommsState_Length;                                                  // According to our state machine
 
             } break;
 

@@ -8,7 +8,7 @@ uint8_t crc8(uint8_t* data, uint32_t length) {
             if( crc & 0x80) {
                 crc = (crc << 1) ^ 0x07;
             } else {
-                crc << 1;
+                crc <<= 1;
             }
         }
     }

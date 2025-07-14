@@ -17,7 +17,8 @@
     "system.h": "c",
     "rcc.h": "c",
     "comms.h": "c",
-    "crc8.h": "c"
+    "crc8.h": "c",
+    "assert.h": "c"
   },
   "cortex-debug.gdbPath": "/usr/bin/gdb-multiarch"
 }
