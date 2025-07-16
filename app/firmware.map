@@ -1129,20 +1129,20 @@ END GROUP
 .igot.plt       0x000000002000000c        0x0 load address 0x0000000008008da8
  .igot.plt      0x000000002000000c        0x0 src/firmware.o
 
-.bss            0x0000000020000010       0x58 load address 0x0000000008008da8
+.bss            0x0000000020000010       0x98 load address 0x0000000008008da8
  *(.bss*)
  .bss.ticks     0x0000000020000010        0x8 ../shared/src/core/system.o
  .bss.data_buffer
-                0x0000000020000018       0x40 ../shared/src/core/uart.o
- .bss.rb        0x0000000020000058       0x10 ../shared/src/core/uart.o
+                0x0000000020000018       0x80 ../shared/src/core/uart.o
+ .bss.rb        0x0000000020000098       0x10 ../shared/src/core/uart.o
  *(COMMON)
-                0x0000000020000068                . = ALIGN (0x4)
-                0x0000000020000068                _ebss = .
+                0x00000000200000a8                . = ALIGN (0x4)
+                0x00000000200000a8                _ebss = .
 
 /DISCARD/
  *(.eh_frame)
-                0x0000000020000068                . = ALIGN (0x4)
-                0x0000000020000068                end = .
+                0x00000000200000a8                . = ALIGN (0x4)
+                0x00000000200000a8                end = .
                 0x0000000020018000                PROVIDE (_stack = (ORIGIN (ram) + LENGTH (ram)))
 OUTPUT(firmware.elf elf32-littlearm)
 LOAD linker stubs
@@ -1327,40 +1327,40 @@ LOAD linker stubs
  .debug_line    0x0000000000004044      0x25f ../libopencm3/lib/libopencm3_stm32f4.a(flash_common_idcache.o)
  .debug_line    0x00000000000042a3      0x18c ../libopencm3/lib/libopencm3_stm32f4.a(pwr.o)
 
-.debug_str      0x0000000000000000    0x14ce8
+.debug_str      0x0000000000000000    0x14d25
  .debug_str     0x0000000000000000     0xb92d src/firmware.o
                                        0xbaa5 (size before relaxing)
  .debug_str     0x000000000000b92d     0x4364 src/timer.o
                                        0xd439 (size before relaxing)
- .debug_str     0x000000000000fc91      0xddf ../shared/src/core/system.o
-                                       0x9940 (size before relaxing)
- .debug_str     0x0000000000010a70     0x142f ../shared/src/core/uart.o
-                                       0xafba (size before relaxing)
- .debug_str     0x0000000000011e9f       0x5a ../shared/src/core/ring-buffer.o
-                                       0x389f (size before relaxing)
- .debug_str     0x0000000000011ef9      0x17f ../libopencm3/lib/libopencm3_stm32f4.a(gpio_common_f0234.o)
+ .debug_str     0x000000000000fc91      0xe1b ../shared/src/core/system.o
+                                       0x9947 (size before relaxing)
+ .debug_str     0x0000000000010aac     0x1430 ../shared/src/core/uart.o
+                                       0xafc2 (size before relaxing)
+ .debug_str     0x0000000000011edc       0x5a ../shared/src/core/ring-buffer.o
+                                       0x38a6 (size before relaxing)
+ .debug_str     0x0000000000011f36      0x17f ../libopencm3/lib/libopencm3_stm32f4.a(gpio_common_f0234.o)
                                        0x61a1 (size before relaxing)
- .debug_str     0x0000000000012078      0x475 ../libopencm3/lib/libopencm3_stm32f4.a(rcc_common_all.o)
+ .debug_str     0x00000000000120b5      0x475 ../libopencm3/lib/libopencm3_stm32f4.a(rcc_common_all.o)
                                        0x953e (size before relaxing)
- .debug_str     0x00000000000124ed      0xb58 ../libopencm3/lib/libopencm3_stm32f4.a(rcc.o)
+ .debug_str     0x000000000001252a      0xb58 ../libopencm3/lib/libopencm3_stm32f4.a(rcc.o)
                                        0x9db3 (size before relaxing)
- .debug_str     0x0000000000013045      0x9c6 ../libopencm3/lib/libopencm3_stm32f4.a(timer_common_all.o)
+ .debug_str     0x0000000000013082      0x9c6 ../libopencm3/lib/libopencm3_stm32f4.a(timer_common_all.o)
                                        0xd7ed (size before relaxing)
- .debug_str     0x0000000000013a0b      0x21b ../libopencm3/lib/libopencm3_stm32f4.a(usart_common_all.o)
+ .debug_str     0x0000000000013a48      0x21b ../libopencm3/lib/libopencm3_stm32f4.a(usart_common_all.o)
                                        0xa00a (size before relaxing)
- .debug_str     0x0000000000013c26       0x1e ../libopencm3/lib/libopencm3_stm32f4.a(usart_common_f124.o)
+ .debug_str     0x0000000000013c63       0x1e ../libopencm3/lib/libopencm3_stm32f4.a(usart_common_f124.o)
                                        0x9d76 (size before relaxing)
- .debug_str     0x0000000000013c44      0xe5d ../libopencm3/lib/libopencm3_stm32f4.a(vector.o)
+ .debug_str     0x0000000000013c81      0xe5d ../libopencm3/lib/libopencm3_stm32f4.a(vector.o)
                                        0x6a49 (size before relaxing)
- .debug_str     0x0000000000014aa1       0xd2 ../libopencm3/lib/libopencm3_stm32f4.a(systick.o)
+ .debug_str     0x0000000000014ade       0xd2 ../libopencm3/lib/libopencm3_stm32f4.a(systick.o)
                                        0x40a2 (size before relaxing)
- .debug_str     0x0000000000014b73       0xc4 ../libopencm3/lib/libopencm3_stm32f4.a(nvic.o)
+ .debug_str     0x0000000000014bb0       0xc4 ../libopencm3/lib/libopencm3_stm32f4.a(nvic.o)
                                        0x5cb4 (size before relaxing)
- .debug_str     0x0000000000014c37       0x64 ../libopencm3/lib/libopencm3_stm32f4.a(flash_common_all.o)
+ .debug_str     0x0000000000014c74       0x64 ../libopencm3/lib/libopencm3_stm32f4.a(flash_common_all.o)
                                        0x54eb (size before relaxing)
- .debug_str     0x0000000000014c9b       0x47 ../libopencm3/lib/libopencm3_stm32f4.a(flash_common_idcache.o)
+ .debug_str     0x0000000000014cd8       0x47 ../libopencm3/lib/libopencm3_stm32f4.a(flash_common_idcache.o)
                                        0x550d (size before relaxing)
- .debug_str     0x0000000000014ce2        0x6 ../libopencm3/lib/libopencm3_stm32f4.a(pwr.o)
+ .debug_str     0x0000000000014d1f        0x6 ../libopencm3/lib/libopencm3_stm32f4.a(pwr.o)
                                        0x5167 (size before relaxing)
 
 .comment        0x0000000000000000       0x33

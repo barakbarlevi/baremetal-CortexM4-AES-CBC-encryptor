@@ -1,5 +1,11 @@
 #include "core/crc8.h"
 
+// If we want to compare the crc with the one calculated in the .ts file on the host, we will use a logpoint.
+// If a line of code that we want to break on is optimized away, we cant land on it. Thus the use of the 
+// volatile dummy variable
+
+//volatile int x = 0;
+
 uint8_t crc8(uint8_t* data, uint32_t length) {
     uint8_t crc = 0;
     for(uint32_t i = 0; i <length; i++) {
@@ -11,6 +17,7 @@ uint8_t crc8(uint8_t* data, uint32_t length) {
                 crc <<= 1;
             }
         }
+        //x++; // This remains in the built program. We can use a logpoint here
     }
     return crc;
 }

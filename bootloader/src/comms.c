@@ -87,6 +87,7 @@ bool comms_packets_available(void) {
 
 void comms_write(comms_packet_t* packet) {
     uart_write((uint8_t*)packet, PACKET_LENGTH);
+    comms_packet_copy(packet, &last_transmitted_packet);
 }
 
 void comms_read(comms_packet_t* packet) {
@@ -156,5 +157,5 @@ uint8_t comms_compute_crc (comms_packet_t* packet) {
     // Note: when structs have different data types in them, the compiler will insert padding between different fields,
     // to make sure everything lines up on the memory boundary of the largest member. We're good with our current specific
     // implementation because it has only uint8_t fields, no padding will occur.
-    return crc8((uint8_t*)&packet, PACKET_LENGTH - PACKET_CRC_BYTES);
+    return crc8((uint8_t*)packet, PACKET_LENGTH - PACKET_CRC_BYTES);
 }

@@ -22,6 +22,29 @@
       "device": "STM32F446RE",
       "runToEntryPoint": "main",
       "interface": "swd"
+    },
+    {
+      "name": "ST-Link: Debug Bootloader",
+      "cwd": "${workspaceFolder}/bootloader",
+      "executable": "./bootloader.elf",
+      "servertype": "stutil",
+      "request": "launch",
+      "type": "cortex-debug",
+      "device": "STM32F446RE",
+      "runToEntryPoint": "main",
+      "interface": "swd",
+      "preLaunchTask": "build_bootloader"
+    },
+    {
+      "name": "ST-Link: Attach to Bootloader",
+      "cwd": "${workspaceFolder}/bootloader",
+      "executable": "./bootloader.elf",
+      "servertype": "stutil",
+      "request": "attach",
+      "type": "cortex-debug",
+      "device": "STM32F446RE",
+      "runToEntryPoint": "main",
+      "interface": "swd"
     }
   ]
 }
