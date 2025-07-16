@@ -32,7 +32,7 @@ static comms_packet_t last_transmitted_packet = { .length = 0, .data = {0}, .crc
 static comms_packet_t packet_buffer[PACKET_BUFFER_LENGTH];
 static uint32_t packet_read_index = 0;
 static uint32_t packet_write_index = 0;
-static uint32_t packet_buffer_mask = PACKET_BUFFER_LENGTH;
+static uint32_t packet_buffer_mask = PACKET_BUFFER_LENGTH - 1;
 
 /**
  * @brief Check if packet is specifically either a request retransmittion or an ack packet

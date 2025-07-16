@@ -17,4 +17,5 @@ src/bootloader.o: src/bootloader.c \
  ../libopencm3/include/libopencm3/stm32/common/pwr_common_v1.h \
  ../libopencm3/include/libopencm3/stm32/common/rcc_common_all.h \
  inc/common-defines.h ../shared/inc/core/uart.h \
- ../shared/inc/core/system.h inc/comms.h inc/common-defines.h
+ ../shared/inc/core/system.h inc/comms.h inc/common-defines.h \
+ inc/bl-flash.h ../shared/inc/core/simple-timer.h

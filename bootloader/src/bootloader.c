@@ -5,6 +5,8 @@
 #include "core/uart.h"
 #include "core/system.h"
 #include "comms.h"
+#include "bl-flash.h"
+#include "core/simple-timer.h"
 
 #define UART_PORT     (GPIOA)
 #define RX_PIN       (GPIO3)        // UART RX
@@ -60,19 +62,52 @@ int main(void) {
     // we've already set up our ring-buffer and everything else needed, and tries to write into uninitialized memory! We'll have to
     // Teardown, symmetrically to the above set-ups, and before the jump to the main app's main function.
 
-    comms_packet_t packet = {
-        .length = 1,
-        .data = {1, 2, 3, 4, 5, 6, 7, 8, 9, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff},
-        .crc = 0
-    };
-    packet.crc = comms_compute_crc(&packet);
+    //// Packet testing. NOTE: I myself didn't conduct the test. It seemed like traditional debugging
+    // comms_packet_t packet = {
+    //     .length = 1,
+    //     .data = {1, 2, 3, 4, 5, 6, 7, 8, 9, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff},
+    //     .crc = 0
+    // };
+    // packet.crc = comms_compute_crc(&packet);
     
     //packet.crc++; // Testing re-transmit 
 
+    //// The few lines below are initial test to see that we can erase and write to flash successfully. The flash dump itself
+    //// can be viewed in STM32CubeProgrammer if using ST-Link, or other options such as OpenOCD CLI, J-Flash etc.
+    // uint8_t data[1024] = {0};
+    // for(uint16_t i = 0; i < 1024; i++) {
+    //     data[i] = i & 0xff;
+    // }
+    // bl_flash_erase_main_application();
+    // bl_flash_write(0x08008000, data, 1024);
+    // bl_flash_write(0x0800C000, data, 1024);
+    // bl_flash_write(0x08010000, data, 1024);
+    // bl_flash_write(0x08020000, data, 1024);
+    // bl_flash_write(0x08040000, data, 1024);
+    // bl_flash_write(0x08060000, data, 1024);
+    
+    simple_timer_t timer;
+    simple_timer_t timer2;
+    simple_timer_setup(&timer, 1000, false);
+    simple_timer_setup(&timer2, 2000, true);
+
     while(true) {
-        comms_update();
-        comms_write(&packet);
-        system_delay(500);  // msec
+        // comms_update();
+        // comms_write(&packet);
+        // system_delay(500);  // msec
+
+        //// Upon boot, we'll check if anyone is trying to send us a firmware update. We'll choose to employ the systick mechanism.
+        //// After timeout, we'll just jump to the main application without updating its firmware
+        // simple_timer_t tests:
+        // if(simple_timer_has_elapsed(&timer)) {
+        //     volatile int x = 0;
+        //     x++;    // Logpoint here: "Timer elapsed"
+        // }
+
+        // if(simple_timer_has_elapsed(&timer2)) {
+        //     simple_timer_reset(&timer);
+        // }
+
     }
 
     // TODO: Teardown
