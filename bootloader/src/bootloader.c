@@ -42,6 +42,9 @@ static bl_state_t state = BL_State_Sync;
 static uint32_t fw_length = 0;
 static uint32_t bytes_written = 0; // Number of firmware update bytes the had been written to flash. To know where our next write goes
 static uint8_t sync_seq[4] = {0};  // 4 bytes, initiated at 0
+static simple_timer_t timer;
+static comms_packet_t packet;  // Will be used both to send and receive. We only do 1 of them at a time
+
 
 static void gpio_setup(void) {
     rcc_periph_clock_enable(RCC_GPIOA);
@@ -61,6 +64,18 @@ static void jump_to_main(void) {
     void_fn jump_fn = (void_fn)reset_vector;    // We interpert that address as a function and we call it. So we just execution to that place
     jump_fn();
     // XXXX Write also and comment about the other 2 solutions! XXXX
+}
+
+static void bootloading_fail(void) {
+    comms_create_single_byte_packet(&packet, BL_PACKET_NACK_DATA0);
+    comms_write(&packet);
+    state = BL_State_Done;  // Breaking out of the while loop
+}
+
+static void check_for_timeout(void) {
+    if(simple_timer_has_elapsed(&timer)) {
+        bootloading_fail();
+    }
 }
 
 int main(void) {
@@ -111,7 +126,6 @@ int main(void) {
     // bl_flash_write(0x08040000, data, 1024);
     // bl_flash_write(0x08060000, data, 1024);
     
-    simple_timer_t timer;
     //simple_timer_t timer2;
     simple_timer_setup(&timer, DEFAULT_TIMEOUT, false);
     //simple_timer_setup(&timer2, 2000, true);
@@ -132,8 +146,6 @@ int main(void) {
         // if(simple_timer_has_elapsed(&timer2)) {
         //     simple_timer_reset(&timer);
         // }
-
-        comms_packet_t packet;  // Will be used both to send and receive. We only do 1 of them at a time
 
         if(state == BL_State_Sync) {
             if(uart_data_available()) {
@@ -157,18 +169,10 @@ int main(void) {
                     simple_timer_reset(&timer);
                     state = BL_State_WaitForUpdateReq;
                 } else {
-                        if(simple_timer_has_elapsed(&timer)) {
-                            comms_create_single_byte_packet(&packet, BL_PACKET_NACK_DATA0);
-                            comms_write(&packet);
-                            state = BL_State_Done;  // Timed out, breaking out of the while loop
-                    }
+                        check_for_timeout();
                 }
             } else {
-                if(simple_timer_has_elapsed(&timer)) {
-                    comms_create_single_byte_packet(&packet, BL_PACKET_NACK_DATA0);
-                    comms_write(&packet);
-                    state = BL_State_Done;  // Timed out, breaking out of the while loop
-                }
+                check_for_timeout();
             }
             continue;   // To ensure we never get to the next line (state machine) if we haven't already syncd
         }
@@ -176,15 +180,28 @@ int main(void) {
         comms_update(); // Takes control of our UART data stream
 
         switch (state) {
-            case BL_State_Sync: {
-                
-            } break;
+            // BL_State_Sync: addressed above
 
             case BL_State_WaitForUpdateReq: {
-                
+                if(comms_packets_available()) {
+                    comms_read(&packet);
+                    if(comms_is_single_byte_packet(&packet, BL_PACKET_FW_UPDATE_REQ_DATA0)) {
+                        // Desired situation, we can send our response
+                        comms_create_single_byte_packet(&packet, BL_PACKET_FW_UPDATE_RES_DATA0);
+                        comms_write(&packet);
+                        state = BL_State_DevideIDReq;
+                    } else {
+                        bootloading_fail(); // The packet we got isn't the one we're looking for at this stage
+                    }
+                } else {
+                    check_for_timeout();
+                }
             } break;
 
             case BL_State_DevideIDReq: {
+                comms_create_single_byte_packet(&packet, BL_PACKET_DEVICE_ID_REQ_DATA0);
+                comms_write(&packet);
+                state = BL_State_DevideIDRes;
                 
             } break;
 
