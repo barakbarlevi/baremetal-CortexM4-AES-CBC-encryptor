@@ -44,7 +44,7 @@ static uint32_t fw_length = 0;
 static uint32_t bytes_written = 0; // Number of firmware update bytes the had been written to flash. To know where our next write goes
 static uint8_t sync_seq[4] = {0};  // 4 bytes, initiated at 0
 static simple_timer_t timer;
-static comms_packet_t packet;  // Will be used both to send and receive. We only do 1 of them at a time
+static comms_packet_t temp_packet;  // Will be used both to send and receive. We only do 1 of them at a time
 
 
 static void gpio_setup(void) {
@@ -77,8 +77,8 @@ static void jump_to_main(void) {
 }
 
 static void bootloading_fail(void) {
-    comms_create_single_byte_packet(&packet, BL_PACKET_NACK_DATA0);
-    comms_write(&packet);
+    comms_create_single_byte_packet(&temp_packet, BL_PACKET_NACK_DATA0);
+    comms_write(&temp_packet);
     state = BL_State_Done;  // Breaking out of the while loop
 }
 
@@ -186,16 +186,16 @@ int main(void) {
                 sync_seq[2] = sync_seq[3];
                 sync_seq[3] = uart_read_byte();
 
-                bool is_match = sync_seq[0] = SYNQ_SEQ_0;
+                bool is_match = sync_seq[0] == SYNQ_SEQ_0;
                 is_match = is_match & (sync_seq[1] = SYNQ_SEQ_1);
                 is_match = is_match & (sync_seq[2] = SYNQ_SEQ_2);
                 is_match = is_match & (sync_seq[3] = SYNQ_SEQ_3);
 
                 if (is_match) {
                     // Sync is observed
-                    comms_create_single_byte_packet(&packet, BL_PACKET_SYNC_OBSERVED_DATA0);
+                    comms_create_single_byte_packet(&temp_packet, BL_PACKET_SYNC_OBSERVED_DATA0);
                     // Notify the other side
-                    comms_write(&packet);
+                    comms_write(&temp_packet);
                     // In case we didn't timeout, we also want to reset the timer for the next go-around.
                     // We don't want to have only some amount of secs for the whole process, it might take more
                     simple_timer_reset(&timer);
@@ -217,12 +217,12 @@ int main(void) {
             case BL_State_WaitForUpdateReq: {
 
                 if(comms_packets_available()) {
-                    comms_read(&packet);
-                    if(comms_is_single_byte_packet(&packet, BL_PACKET_FW_UPDATE_REQ_DATA0)) {
+                    comms_read(&temp_packet);
+                    if(comms_is_single_byte_packet(&temp_packet, BL_PACKET_FW_UPDATE_REQ_DATA0)) {
                         simple_timer_reset(&timer);
                         // Desired situation, we can send our response
-                        comms_create_single_byte_packet(&packet, BL_PACKET_FW_UPDATE_RES_DATA0);
-                        comms_write(&packet);
+                        comms_create_single_byte_packet(&temp_packet, BL_PACKET_FW_UPDATE_RES_DATA0);
+                        comms_write(&temp_packet);
                         state = BL_State_DevideIDReq;
                     } else {
                         bootloading_fail(); // The packet we got isn't the one we're looking for at this stage
@@ -236,8 +236,8 @@ int main(void) {
             case BL_State_DevideIDReq: {
                 
                 simple_timer_reset(&timer);
-                comms_create_single_byte_packet(&packet, BL_PACKET_DEVICE_ID_REQ_DATA0);
-                comms_write(&packet);
+                comms_create_single_byte_packet(&temp_packet, BL_PACKET_DEVICE_ID_REQ_DATA0);
+                comms_write(&temp_packet);
                 state = BL_State_DevideIDRes;
                 
             } break;
@@ -245,8 +245,8 @@ int main(void) {
             case BL_State_DevideIDRes: {
 
                 if(comms_packets_available()) {
-                    comms_read(&packet);
-                    if(is_device_id_packet(&packet) && packet.data[1] == DEVICE_ID) {
+                    comms_read(&temp_packet);
+                    if(is_device_id_packet(&temp_packet) && temp_packet.data[1] == DEVICE_ID) {
                         simple_timer_reset(&timer);
                         // device id matched
                         state = BL_State_FWLengthReq;
@@ -263,8 +263,8 @@ int main(void) {
             case BL_State_FWLengthReq: {
 
                 simple_timer_reset(&timer);
-                comms_create_single_byte_packet(&packet, BL_PACKET_FW_LENGTH_REQ_DATA0);
-                comms_write(&packet);
+                comms_create_single_byte_packet(&temp_packet, BL_PACKET_FW_LENGTH_REQ_DATA0);
+                comms_write(&temp_packet);
                 state = BL_State_FWLengthRes;
 
             } break;
@@ -272,17 +272,17 @@ int main(void) {
             case BL_State_FWLengthRes: {
 
                 if(comms_packets_available()) {
-                    comms_read(&packet);
+                    comms_read(&temp_packet);
 
                     // Length data arrives in little endian
                     fw_length = (
-                        (packet.data[1])       |
-                        (packet.data[2] << 8)  |
-                        (packet.data[3] << 16) |
-                        (packet.data[4] << 24) 
+                        (temp_packet.data[1])       |
+                        (temp_packet.data[2] << 8)  |
+                        (temp_packet.data[3] << 16) |
+                        (temp_packet.data[4] << 24) 
                     );
 
-                    if(is_fw_length_packet(&packet) && fw_length <= MAX_FW_LENGTH) {
+                    if(is_fw_length_packet(&temp_packet) && fw_length <= MAX_FW_LENGTH) {
                         // Valid fw length is accepted
                         state = BL_State_EraseApplication;
                     } else {
@@ -303,14 +303,16 @@ int main(void) {
             case BL_State_ReceiveFirmware: {
                 
                 if(comms_packets_available()) {
-                    comms_read(&packet);
+                    comms_read(&temp_packet);
 
-                    const uint8_t packet_length = (packet.length & 0x0f) + 1;  // We represnt the length of the packet by a full byte, though 4 bits are enough
-                    bl_flash_write(MAIN_APP_START_ADDRESS + bytes_written, packet.data, packet_length);
+                    const uint8_t packet_length = (temp_packet.length & 0x0f) + 1;  // We represnt the length of the packet by a full byte, though 4 bits are enough
+                    bl_flash_write(MAIN_APP_START_ADDRESS + bytes_written, temp_packet.data, packet_length);
                     bytes_written += packet_length;
                     simple_timer_reset(&timer); // Every time we get a fresh packet we'll reset the timer
 
                     if(bytes_written >= fw_length) {
+                        comms_create_single_byte_packet(&temp_packet, BL_PACKET_UPDATE_SUCCESSFUL_DATA0);
+                        comms_write(&temp_packet);
                         state = BL_State_Done;
                     }
 
@@ -330,8 +332,15 @@ int main(void) {
 
     }
 
-    // TODO: Teardown
     // Teardown: There are a bunch of things we set up in this "bootloader" code. We need to undo them.
+    // Before performing the teardown, we need to keep in mind that all 18 bytes of the last uart packet
+    // we're sending will be sent before we hit the teardown process. A proper way would be checking to see
+    // that we finished sending everything we wanted over uart. A bad implementation would be:
+    system_delay(150);  // Should be enough, without the user noticing
+    uart_teardown();
+    gpio_teardown();
+    system_teardown();
+    // No comms teardown needed
 
     jump_to_main();         // Jump to the main function in our application portion
 

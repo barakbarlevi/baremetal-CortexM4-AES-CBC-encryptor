@@ -36,6 +36,6 @@ void comms_read(comms_packet_t* packet);               // Assumption: we used co
 void comms_update(void);                               // Communications related workload in the main while(1) loop
 uint8_t comms_compute_crc (comms_packet_t* packet);    // Compute the CRC for a packet that has its length and its data set up
 bool comms_is_single_byte_packet(const comms_packet_t* packet, uint8_t byte);    // Doxygen style comment block in comms.c
-bool comms_create_single_byte_packet(comms_packet_t* packet, uint8_t byte);      // As name suggests
+void comms_create_single_byte_packet(comms_packet_t* packet, uint8_t byte);      // As name suggests
 
 #endif  // INC_COMMS_H

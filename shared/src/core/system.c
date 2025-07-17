@@ -23,7 +23,7 @@ void sys_tick_handler(void) {
  * @brief static means it will be available only in the current tranlation unit. One can think of the latter as the .c file and the .h files it includes
  *        In this function, we set the CPU clock and frequency
  */
-static void rcc_setup() {
+static void rcc_setup(void) {
     rcc_clock_setup_pll(&rcc_hsi_configs[RCC_CLOCK_3V3_84MHZ]);
 }
 
@@ -51,7 +51,7 @@ void system_setup(void) {
 void system_teardown(void) {
     systick_interrupt_disable();
     systick_counter_disable();
-    systic_clear();
+    systick_clear();
 }
 
 

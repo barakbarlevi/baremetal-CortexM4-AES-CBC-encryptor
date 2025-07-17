@@ -28,7 +28,6 @@ bool simple_timer_has_elapsed(simple_timer_t* timer) {
     return has_elapsed;
 }
 
-bool simple_timer_reset(simple_timer_t* timer) {
+void simple_timer_reset(simple_timer_t* timer) {
     simple_timer_setup(timer, timer->wait_time, timer->auto_reset);
-
 }
