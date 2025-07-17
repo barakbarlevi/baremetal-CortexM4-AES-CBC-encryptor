@@ -18,6 +18,31 @@
 // Safety check that we get link error when we are overrunning the 32 KiB we specified for the bootloader
 // const uint8_t data[0x8000] = {0};
 
+#define DEVICE_ID  (0x42)      // Arbitrary value. One byte - allows the system to support 256 different devices. XXXX Arrange all code...
+#define SYNQ_SEQ_0 (0xc4)      // First byte in synchronization sequence. Chosen arbitrarily. These are just bytes that we expect to
+#define SYNQ_SEQ_1 (0x55)      // get in a row
+#define SYNQ_SEQ_2 (0x7e)
+#define SYNQ_SEQ_3 (0x10)
+
+#define DEFAULT_TIMEOUT (5000)  // 5 secs
+
+typedef enum bl_state_t {
+    BL_State_Sync,
+    BL_State_WaitForUpdateReq, // Req for request
+    BL_State_DevideIDReq,       // Req for request
+    BL_State_DevideIDRes,       // Res for response
+    BL_State_FWLengthReq,       // Req for request
+    BL_State_FWLengthRes,       // Res for response
+    BL_State_EraseApplication,
+    BL_State_ReceiveFirmware,
+    BL_State_Done,
+} bl_state_t;
+
+static bl_state_t state = BL_State_Sync;
+static uint32_t fw_length = 0;
+static uint32_t bytes_written = 0; // Number of firmware update bytes the had been written to flash. To know where our next write goes
+static uint8_t sync_seq[4] = {0};  // 4 bytes, initiated at 0
+
 static void gpio_setup(void) {
     rcc_periph_clock_enable(RCC_GPIOA);
     gpio_mode_setup(UART_PORT, GPIO_MODE_AF, GPIO_PUPD_NONE, TX_PIN | RX_PIN);  // We need to use the alternate function mode, to have the GPIO pin serve an alternate purpose (UART)
@@ -87,11 +112,11 @@ int main(void) {
     // bl_flash_write(0x08060000, data, 1024);
     
     simple_timer_t timer;
-    simple_timer_t timer2;
-    simple_timer_setup(&timer, 1000, false);
-    simple_timer_setup(&timer2, 2000, true);
+    //simple_timer_t timer2;
+    simple_timer_setup(&timer, DEFAULT_TIMEOUT, false);
+    //simple_timer_setup(&timer2, 2000, true);
 
-    while(true) {
+    while(state != BL_State_Done) {
         // comms_update();
         // comms_write(&packet);
         // system_delay(500);  // msec
@@ -107,6 +132,85 @@ int main(void) {
         // if(simple_timer_has_elapsed(&timer2)) {
         //     simple_timer_reset(&timer);
         // }
+
+        comms_packet_t packet;  // Will be used both to send and receive. We only do 1 of them at a time
+
+        if(state == BL_State_Sync) {
+            if(uart_data_available()) {
+                sync_seq[0] = sync_seq[1];
+                sync_seq[1] = sync_seq[2];
+                sync_seq[2] = sync_seq[3];
+                sync_seq[3] = uart_read_byte();
+
+                bool is_match = sync_seq[0] = SYNQ_SEQ_0;
+                is_match = is_match & (sync_seq[1] = SYNQ_SEQ_1);
+                is_match = is_match & (sync_seq[2] = SYNQ_SEQ_2);
+                is_match = is_match & (sync_seq[3] = SYNQ_SEQ_3);
+
+                if (is_match) {
+                    // Sync is observed
+                    comms_create_single_byte_packet(&packet, BL_PACKET_SYNC_OBSERVED_DATA0);
+                    // Notify the other side
+                    comms_write(&packet);
+                    // In case we didn't timeout, we also want to reset the timer for the next go-around.
+                    // We don't want to have only some amount of secs for the whole process, it might take more
+                    simple_timer_reset(&timer);
+                    state = BL_State_WaitForUpdateReq;
+                } else {
+                        if(simple_timer_has_elapsed(&timer)) {
+                            comms_create_single_byte_packet(&packet, BL_PACKET_NACK_DATA0);
+                            comms_write(&packet);
+                            state = BL_State_Done;  // Timed out, breaking out of the while loop
+                    }
+                }
+            } else {
+                if(simple_timer_has_elapsed(&timer)) {
+                    comms_create_single_byte_packet(&packet, BL_PACKET_NACK_DATA0);
+                    comms_write(&packet);
+                    state = BL_State_Done;  // Timed out, breaking out of the while loop
+                }
+            }
+            continue;   // To ensure we never get to the next line (state machine) if we haven't already syncd
+        }
+        // We are assured to have already syncd
+        comms_update(); // Takes control of our UART data stream
+
+        switch (state) {
+            case BL_State_Sync: {
+                
+            } break;
+
+            case BL_State_WaitForUpdateReq: {
+                
+            } break;
+
+            case BL_State_DevideIDReq: {
+                
+            } break;
+
+            case BL_State_DevideIDRes: {
+                
+            } break;
+
+            case BL_State_FWLengthReq: {
+                
+            } break;
+
+            case BL_State_FWLengthRes: {
+                
+            } break;
+
+            case BL_State_EraseApplication: {
+                
+            } break;
+
+            case BL_State_ReceiveFirmware: {
+                
+            } break;
+
+            // No need to address the BL_State_Done case. It's in the while loop condition
+
+        }
 
     }
 

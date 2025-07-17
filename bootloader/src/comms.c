@@ -1,3 +1,4 @@
+#include <string.h>
 #include "comms.h"
 #include "core/uart.h"
 #include "core/crc8.h"
@@ -39,7 +40,7 @@ static uint32_t packet_buffer_mask = PACKET_BUFFER_LENGTH - 1;
  *        Assumption: the packet has a valid CRC
  * @param byte Is a specifier for either retx or ack
  */
-static bool comms_is_single_byte_packet(const comms_packet_t* packet, uint8_t byte) {
+bool comms_is_single_byte_packet(const comms_packet_t* packet, uint8_t byte) {
     if(packet->length != 1) { return false; }
     if(packet->data[0] != byte) { return false; }
     for(uint8_t i = 1; i < PACKET_DATA_LENGTH; i++) {
@@ -50,35 +51,29 @@ static bool comms_is_single_byte_packet(const comms_packet_t* packet, uint8_t by
     return true;
 }
 
-/**
- * @brief Practically a memcpy. Including <string.h> will cause the embedded binary to pull in unnecessary functions
- *        from the standard C library, which increases code size
- */
-static void comms_packet_copy(comms_packet_t* source, comms_packet_t* destination) {
-    destination->length = source->length;
-    for (uint8_t i = 0; i < PACKET_DATA_LENGTH; i++) {
-        destination->data[i] = source->data[i];
-    }
-    destination->crc = source->crc;    
+bool comms_create_single_byte_packet(comms_packet_t* packet, uint8_t byte) {
+    memset(packet, 0xff, sizeof(comms_packet_t));
+    packet->length = 1;
+    packet->data[0] = PACKET_RETX_DATA0;
+    packet->crc = comms_compute_crc(&retx_packet);  // XXXX DID HE CHANGE THIS? looks like a bug..
 }
 
-void comms_setup(void) {
-    
-    // Setting up a request retransmit packet
-    retx_packet.length = 1;
-    retx_packet.data[0] = PACKET_RETX_DATA0;
-    for (uint8_t i = 0; i < PACKET_DATA_LENGTH; i++) {
-        retx_packet.data[i] = 0xff;
-    }
-    retx_packet.crc = comms_compute_crc(&retx_packet);
+// /**
+//  * @brief Practically a memcpy. Was originally written in order to avoid including <string.h> from the standard C library, due to the concern
+//  *        it will cause the embedded binary to pull in unnecessary functions, increasing code size. But turns out it doesn't, it'll probably
+//  *        just bring in and build the necessary functions. This should be verified.
+//  */
+// static void comms_packet_copy(comms_packet_t* source, comms_packet_t* destination) {
+//     destination->length = source->length;
+//     for (uint8_t i = 0; i < PACKET_DATA_LENGTH; i++) {
+//         destination->data[i] = source->data[i];
+//     }
+//     destination->crc = source->crc;    
+//}
 
-    // Setting up an ack packet
-    ack_packet.length = 1;
-    ack_packet.data[0] = PACKET_ACK_DATA0;
-    for (uint8_t i = 0; i < PACKET_DATA_LENGTH; i++) {
-        ack_packet.data[i] = 0xff;
-    }
-    ack_packet.crc = comms_compute_crc(&ack_packet);
+void comms_setup(void) {
+    comms_create_single_byte_packet(&retx_packet, PACKET_RETX_DATA0); // Setting up a request retransmit packet
+    comms_create_single_byte_packet(&ack_packet, PACKET_ACK_DATA0);   // Setting up an ack packet
 }
 
 bool comms_packets_available(void) {
@@ -87,11 +82,13 @@ bool comms_packets_available(void) {
 
 void comms_write(comms_packet_t* packet) {
     uart_write((uint8_t*)packet, PACKET_LENGTH);
-    comms_packet_copy(packet, &last_transmitted_packet);
+    memcpy(&last_transmitted_packet, packet, sizeof(comms_packet_t));
+    //comms_packet_copy(packet, &last_transmitted_packet);  // Old implementation
 }
 
 void comms_read(comms_packet_t* packet) {
-    comms_packet_copy(&packet_buffer[packet_read_index], packet);
+    memcpy(packet, &packet_buffer[packet_read_index], sizeof(comms_packet_t));
+    //comms_packet_copy(&packet_buffer[packet_read_index], packet);         // Old implementation
     packet_read_index = (packet_read_index + 1) & packet_buffer_mask;       // Increment read index with wrap-around
 }
 
@@ -138,7 +135,9 @@ void comms_update(void) {
                 if (next_write_index == packet_read_index) {
                     __asm__("BKPT #0");
                 }                                                                           // For debugging purposes
-                comms_packet_copy(&temporary_packet, &packet_buffer[packet_write_index]);   // Writing packet into the ring buffer
+
+                memcpy(&packet_buffer[packet_write_index], &temporary_packet, sizeof(comms_packet_t));  // Writing packet into the ring buffer
+                //comms_packet_copy(&temporary_packet, &packet_buffer[packet_write_index]);   // Writing packet into the ring buffer. Old implementation
                 packet_write_index = next_write_index;
                 comms_write(&ack_packet);                                                   // Send ACK
                 state = CommsState_Length;                                                  // According to our state machine
