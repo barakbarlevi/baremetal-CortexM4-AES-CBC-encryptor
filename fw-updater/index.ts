@@ -12,6 +12,7 @@ const PACKET_LENGTH         = PACKET_LENGTH_BYTES + PACKET_DATA_BYTES + PACKET_C
 const PACKET_ACK_DATA0      = 0x15;
 const PACKET_RETX_DATA0     = 0x19;
 
+// Bootloader constants
 const BL_PACKET_SYNC_OBSERVED_DATA0     = (0x20);
 const BL_PACKET_FW_UPDATE_REQ_DATA0     = (0x31);
 const BL_PACKET_FW_UPDATE_RES_DATA0     = (0x37);
@@ -30,6 +31,11 @@ const FWINFO_LENGTH_OFFSET              = (VECTOR_TABLE_SIZE + (3 * 4));
 
 const SYNC_SEQ  = Buffer.from([0xc4, 0x55, 0x7e, 0x10]);
 const DEFAULT_TIMEOUT  = (5000);
+/**
+ * XXXX
+ * const DEVICE_ID = (0x42) appears here? appeared in episode 11 9:30. did he erase this?
+ */
+
 
 // Details about the serial port connection
 const serialPath            = "/dev/ttyACM0";   // May differ with different host platform
@@ -164,7 +170,7 @@ const consumeFromBuffer = (n: number) => {
 // packet state machine runs here.
 uart.on('data', data => {
 
-  console.log(`Received ${data.length} bytes through uart`);    // XXXX did he leave this? episode 7.3 26:12
+  console.log(`Received ${data.length} bytes through uart`);    // XXXX did he leave this? episode 7.3 26:12 Erased it in episode 11 21:12
 
   // Add the data to the packet
   rxBuffer = Buffer.concat([rxBuffer, data]);
@@ -222,7 +228,7 @@ const waitForPacket = async (timeout = DEFAULT_TIMEOUT) => {
     timeWaited += 1;
 
     if (timeWaited >= timeout) {
-      throw Error('Timed out waiting for packet');
+      throw Error('Timed out waiting for packet');  // Not exiting. We might want to attemp receieve a packets
     }
   }
   return packets.splice(0, 1)[0];
@@ -230,7 +236,8 @@ const waitForPacket = async (timeout = DEFAULT_TIMEOUT) => {
 
 const waitForSingleBytePacket = (byte: number, timeout = DEFAULT_TIMEOUT) => (
   waitForPacket(timeout)
-    .then(packet => {
+    .then(packet => {     // When a packet comes in..
+      // Check if it's the packet we're looking for
       if (packet.length !== 1 || packet.data[0] !== byte) {
         const formattedPacket = [...packet.toBuffer()].map(x => x.toString(16)).join(' ');
         throw new Error(`Unexpected packet received. Expected single byte 0x${byte.toString(16)}), got packet ${formattedPacket}`);
@@ -244,15 +251,25 @@ const waitForSingleBytePacket = (byte: number, timeout = DEFAULT_TIMEOUT) => (
     })
 );
 
+/**
+ * @brief Observe the sync sequence: send the sync sequence and get the xxxx
+ * @param syncDelay 
+ * @param timeout 
+ * @returns 
+ */
 const syncWithBootloader = async (syncDelay = 500, timeout = DEFAULT_TIMEOUT) => {
   let timeWaited = 0;
 
   while (true) {
     uart.write(SYNC_SEQ);
-    await delay(syncDelay);
+    await delay(syncDelay); // We send a "pulse" of data. The bootloader responds to it immediately, within less than millisecs, and we'll
+                            // pick that up. The delay to assure we're not sending them constantly, and then if the bootloader recognizes
+                            // and sends one back we're already sending more bytes. If we do that, it'll mess up the syncronization we're trying
+                            // to create.
     timeWaited += syncDelay;
 
     if (packets.length > 0) {
+      // Being here means that there is a packet and we can retrieve it
       const packet = packets.splice(0, 1)[0];
       if (packet.isSingleBytePacket(BL_PACKET_SYNC_OBSERVED_DATA0)) {
         return;
@@ -276,6 +293,9 @@ const main = async () => {
   }
   const firmwareFilename = process.argv[2];
 
+  // We need to know what's the length of the firmware that we're sending as an update.
+  // It'll be passed to the target machine to make sure it has enough space for it.
+  // XXXX what happened to .then(bin => bin.slice(BOOTLOADER_SIZE)); that was supposed to give us only the main application with the bootloader?
   Logger.info('Reading the firmware image...');
   const fwImage = await fs.readFile(path.join(process.cwd(), firmwareFilename));
   const fwLength = fwImage.length;
@@ -295,6 +315,8 @@ const main = async () => {
   await waitForSingleBytePacket(BL_PACKET_DEVICE_ID_REQ_DATA0);
   Logger.success('Device ID request recieved');
 
+  // At this point we expect the bootloader to ask us for Device ID (to make sure they both match)
+
   const deviceId = fwImage[FWINFO_DEVICE_ID_OFFSET];
   const deviceIDPacket = new Packet(2, Buffer.from([BL_PACKET_DEVICE_ID_RES_DATA0, deviceId]));
   writePacket(deviceIDPacket);
@@ -304,13 +326,16 @@ const main = async () => {
   await waitForSingleBytePacket(BL_PACKET_FW_LENGTH_REQ_DATA0);
   Logger.success('Firmware length request recieved');
 
-  const fwLengthPacketBuffer = Buffer.alloc(5);
+  const fwLengthPacketBuffer = Buffer.alloc(5); // 5: 1 byte for the message kind, 4 bytes to store a little-endian uint32 value represnting the size
   fwLengthPacketBuffer[0] = BL_PACKET_FW_LENGTH_RES_DATA0;
   fwLengthPacketBuffer.writeUInt32LE(fwLength, 1);
   const fwLengthPacket = new Packet(5, fwLengthPacketBuffer);
-  writePacket(fwLengthPacket);
+  writePacket(fwLengthPacket);  // xxxx in episode 11 36:30 wrote .toBuffer()
   Logger.info('Responding with firmware length');
 
+  // If that's unsuccessfull, meaning the firmware length is non-adequate, we'll get a NACK. 
+  // If it's successfull, that's the moment the bootloader is going to start erasing its main app from flash
+  // XXXX I SAW IT TAKES MINE MORE THAN HIS. Possible needs more delay time
   Logger.info('Waiting for a few seconds for main application to be erased...');
   await delay(1000);
   Logger.info('Waiting for a few seconds for main application to be erased...');
@@ -322,13 +347,19 @@ const main = async () => {
   while (bytesWritten < fwLength) {
     await waitForSingleBytePacket(BL_PACKET_READY_FOR_DATA_DATA0);
 
-    const dataBytes = fwImage.slice(bytesWritten, bytesWritten + PACKET_DATA_BYTES);
+    const dataBytes = fwImage.slice(bytesWritten, bytesWritten + PACKET_DATA_BYTES);  // Try to grab 16 bytes and send them out.
+                                                                                      // Note: when we use slice(), if we try to slice more data than available,
+                                                                                      // the operation doesn't fail, it gives back as many bytes as could be.
+                                                                                      // This "edge case" will happen at the edge of the firmware image.
+                                                                                      // XXXX slice deprecated?
     const dataLength = dataBytes.length;
-    const dataPacket = new Packet(dataLength - 1, dataBytes);
-    writePacket(dataPacket);
+    const dataPacket = new Packet(dataLength - 1, dataBytes);   // The -1 is because we're ignoring the top 4 bits. Our packet length can be represented by 4 bits
+    writePacket(dataPacket);  // xxxx in episode 11 45:19 wrote .toBuffer()
     bytesWritten += dataLength;
 
     Logger.info(`Wrote ${dataLength} bytes (${bytesWritten}/${fwLength})`);
+
+    // Eventually, we should have written all of the bytes in the firmware image, or, will have timed out waiting for a packet, in which case we'll fail out
   }
 
   await waitForSingleBytePacket(BL_PACKET_UPDATE_SUCCESSFUL_DATA0);
