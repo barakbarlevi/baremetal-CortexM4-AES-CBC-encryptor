@@ -45,6 +45,16 @@ void system_setup(void) {
     systick_setup();
 }
 
+/***
+ * @brief Need to do a teardown (a reverse process to setup) when the bootloader code finishes, cause it interferes with main app setup
+ */
+void system_teardown(void) {
+    systick_interrupt_disable();
+    systick_counter_disable();
+    systic_clear();
+}
+
+
 /**
  * @brief Spin for a specified amount of milliseconds
  */

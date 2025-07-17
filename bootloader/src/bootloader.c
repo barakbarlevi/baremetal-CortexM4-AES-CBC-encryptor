@@ -12,8 +12,9 @@
 #define RX_PIN       (GPIO3)        // UART RX
 #define TX_PIN       (GPIO2)        // UART TX
 
-#define BOOTLOADER_SIZE        (0x8000U)                         // 32KiB, reserved at the beginning of flash memory for our bootloader
-#define MAIN_APP_START_ADDRESS (FLASH_BASE + BOOTLOADER_SIZE)   // First address of our bootloader's main application
+#define BOOTLOADER_SIZE        (0x8000U)                          // 32KiB, reserved at the beginning of flash memory for our bootloader
+#define MAIN_APP_START_ADDRESS (FLASH_BASE + BOOTLOADER_SIZE)     // First address of our bootloader's main application
+#define MAX_FW_LENGTH          ((1024U * 512U) - BOOTLOADER_SIZE) // 512Kb flash (stm32f446xx)
 
 // Safety check that we get link error when we are overrunning the 32 KiB we specified for the bootloader
 // const uint8_t data[0x8000] = {0};
@@ -52,6 +53,15 @@ static void gpio_setup(void) {
     gpio_set_af(UART_PORT, GPIO_AF7, TX_PIN | RX_PIN);                          // According to the Alternate Function table (chapter 4 table 11 in the datasheet) 
 }
 
+/***
+ * @brief Need to do a teardown (a reverse process to setup) when the bootloader code finishes, cause it interferes with main app setup.
+ *        Going in reverse order to the one in the corresponding setup function.
+ */
+static void gpio_teardown(void) {
+    gpio_mode_setup(UART_PORT, GPIO_MODE_ANALOG, GPIO_PUPD_NONE, TX_PIN | RX_PIN);  // Changing pins mode AF to ANALOG. Lowest power, default mode for pins.
+    rcc_periph_clock_disable(RCC_GPIOA);
+}
+
 static void jump_to_main(void) {
     
     typedef void (*void_fn)(void);  // A type that represents the idea of a function that takes nothing, returns nothing
@@ -76,6 +86,28 @@ static void check_for_timeout(void) {
     if(simple_timer_has_elapsed(&timer)) {
         bootloading_fail();
     }
+}
+
+static bool is_device_id_packet(const comms_packet_t* packet) {
+    if(packet->length != 2) { return false; }   // We expect two bytes - the first one specifies that the next one is a device id
+    if(packet->data[0] != BL_PACKET_DEVICE_ID_RES_DATA0) { return false; }
+    for(uint8_t i = 2; i < PACKET_DATA_LENGTH; i++) {
+        if(packet->data[i] != 0xff) {
+            return false;
+        }
+    }
+    return true;
+}
+
+static bool is_fw_length_packet(const comms_packet_t* packet) {
+    if(packet->length != 5) { return false; }   // 5 bytes: the first identifies it as a fw_length packet, the other 4 are a uint32_t length
+    if(packet->data[0] != BL_PACKET_FW_LENGTH_RES_DATA0) { return false; }
+    for(uint8_t i = 5; i < PACKET_DATA_LENGTH; i++) {
+        if(packet->data[i] != 0xff) {
+            return false;
+        }
+    }
+    return true;
 }
 
 int main(void) {
@@ -183,9 +215,11 @@ int main(void) {
             // BL_State_Sync: addressed above
 
             case BL_State_WaitForUpdateReq: {
+
                 if(comms_packets_available()) {
                     comms_read(&packet);
                     if(comms_is_single_byte_packet(&packet, BL_PACKET_FW_UPDATE_REQ_DATA0)) {
+                        simple_timer_reset(&timer);
                         // Desired situation, we can send our response
                         comms_create_single_byte_packet(&packet, BL_PACKET_FW_UPDATE_RES_DATA0);
                         comms_write(&packet);
@@ -196,9 +230,12 @@ int main(void) {
                 } else {
                     check_for_timeout();
                 }
+
             } break;
 
             case BL_State_DevideIDReq: {
+                
+                simple_timer_reset(&timer);
                 comms_create_single_byte_packet(&packet, BL_PACKET_DEVICE_ID_REQ_DATA0);
                 comms_write(&packet);
                 state = BL_State_DevideIDRes;
@@ -206,24 +243,86 @@ int main(void) {
             } break;
 
             case BL_State_DevideIDRes: {
+
+                if(comms_packets_available()) {
+                    comms_read(&packet);
+                    if(is_device_id_packet(&packet) && packet.data[1] == DEVICE_ID) {
+                        simple_timer_reset(&timer);
+                        // device id matched
+                        state = BL_State_FWLengthReq;
+                    } else {
+                        bootloading_fail(); // The packet we got isn't the one we're looking for at this stage
+                    }
+                } else {
+                    check_for_timeout();
+                }
+
                 
             } break;
 
             case BL_State_FWLengthReq: {
-                
+
+                simple_timer_reset(&timer);
+                comms_create_single_byte_packet(&packet, BL_PACKET_FW_LENGTH_REQ_DATA0);
+                comms_write(&packet);
+                state = BL_State_FWLengthRes;
+
             } break;
 
             case BL_State_FWLengthRes: {
+
+                if(comms_packets_available()) {
+                    comms_read(&packet);
+
+                    // Length data arrives in little endian
+                    fw_length = (
+                        (packet.data[1])       |
+                        (packet.data[2] << 8)  |
+                        (packet.data[3] << 16) |
+                        (packet.data[4] << 24) 
+                    );
+
+                    if(is_fw_length_packet(&packet) && fw_length <= MAX_FW_LENGTH) {
+                        // Valid fw length is accepted
+                        state = BL_State_EraseApplication;
+                    } else {
+                        bootloading_fail(); // The packet we got isn't the one we're looking for at this stage
+                    }
+                } else {
+                    check_for_timeout();
+                }
                 
             } break;
 
             case BL_State_EraseApplication: {
-                
+                bl_flash_erase_main_application();  // May take several seconds
+                simple_timer_reset(&timer);
+                state = BL_State_ReceiveFirmware;
             } break;
 
             case BL_State_ReceiveFirmware: {
                 
+                if(comms_packets_available()) {
+                    comms_read(&packet);
+
+                    const uint8_t packet_length = (packet.length & 0x0f) + 1;  // We represnt the length of the packet by a full byte, though 4 bits are enough
+                    bl_flash_write(MAIN_APP_START_ADDRESS + bytes_written, packet.data, packet_length);
+                    bytes_written += packet_length;
+                    simple_timer_reset(&timer); // Every time we get a fresh packet we'll reset the timer
+
+                    if(bytes_written >= fw_length) {
+                        state = BL_State_Done;
+                    }
+
+                } else {
+                    check_for_timeout();
+                }
+
             } break;
+
+            default: {
+                state = BL_State_Sync;  // In an unlikely invalid state
+            }
 
             // No need to address the BL_State_Done case. It's in the while loop condition
 
@@ -232,6 +331,7 @@ int main(void) {
     }
 
     // TODO: Teardown
+    // Teardown: There are a bunch of things we set up in this "bootloader" code. We need to undo them.
 
     jump_to_main();         // Jump to the main function in our application portion
 

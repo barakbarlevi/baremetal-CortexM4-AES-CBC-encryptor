@@ -72,6 +72,39 @@ void uart_setup(void) {
     usart_enable(USART2);
 }
 
+/**
+ * @brief Tearing down the uart_setup function, in reverse order
+ */
+void uart_teardown(void) {
+    
+    usart_disable(USART2);  // usart_enable(USART2);
+
+    ring_buffer_setup(&rb, data_buffer, RING_BUFFER_SIZE);
+
+    // Enable the clock to the peripheral
+    // Using the Alternate Funtion Mapping table from the datasheet to pick PA2, PA3, USART2
+    rcc_periph_clock_enable(RCC_USART2);
+
+    // A libopencm3 abstration on top of the raw USART registers (can be seen over the reference manual)
+    usart_set_mode(USART2, USART_MODE_TX_RX);
+
+    // No hardware flow control
+    usart_set_flow_control(USART2, USART_FLOWCONTROL_NONE);
+
+    // Set number of data bits, baudrate, parity bit, number of stop bits (we'll be using 8N1)
+    usart_set_databits(USART2, 8);
+    usart_set_baudrate(USART2, BAUD_RATE);
+    usart_set_parity(USART2, 0);
+    usart_set_stopbits(USART2, 1);
+
+    // After setting the registers, now enabling Rx interrupt. We need to enable the ability for interrupts to be wired to this peripheral, using the NVIC
+    usart_enable_rx_interrupt(USART2);
+    nvic_enable_irq(NVIC_USART2_IRQ);
+
+    // Enable the peripheral itself
+    
+}
+
 void uart_write(uint8_t* data, const uint32_t length) {
     for (uint32_t i = 0; i < length; i++) {
         uart_write_byte(data[i]);
