@@ -296,7 +296,9 @@ int main(void) {
 
             case BL_State_EraseApplication: {
                 bl_flash_erase_main_application();  // May take several seconds
-                simple_timer_reset(&timer);
+                comms_create_single_byte_packet(&temp_packet, BL_PACKET_READY_FOR_DATA_DATA0);
+                comms_write(&temp_packet);
+                simple_timer_reset(&timer);         // Sending a packet is a blocking operation, takes time
                 state = BL_State_ReceiveFirmware;
             } break;
 
@@ -305,15 +307,21 @@ int main(void) {
                 if(comms_packets_available()) {
                     comms_read(&temp_packet);
 
+                    // Writing the single packet of data into flash
                     const uint8_t packet_length = (temp_packet.length & 0x0f) + 1;  // We represnt the length of the packet by a full byte, though 4 bits are enough
                     bl_flash_write(MAIN_APP_START_ADDRESS + bytes_written, temp_packet.data, packet_length);
                     bytes_written += packet_length;
                     simple_timer_reset(&timer); // Every time we get a fresh packet we'll reset the timer
 
+                    // If we're done, send the message
                     if(bytes_written >= fw_length) {
                         comms_create_single_byte_packet(&temp_packet, BL_PACKET_UPDATE_SUCCESSFUL_DATA0);
                         comms_write(&temp_packet);
                         state = BL_State_Done;
+                    } else{
+                        // If we're not done, send that we're ready for some more data
+                        comms_create_single_byte_packet(&temp_packet, BL_PACKET_READY_FOR_DATA_DATA0);
+                        comms_write(&temp_packet);
                     }
 
                 } else {

@@ -21,7 +21,8 @@
 #define BL_PACKET_READY_FOR_DATA_DATA0     (0x48)   // Ready to receive firmware data packet
 #define BL_PACKET_UPDATE_SUCCESSFUL_DATA0  (0x54)   // Final packet in the process
 #define BL_PACKET_NACK_DATA0               (0x59)   // "Protocl level" NACK. When we send this, we're saying: whatever you
-                                                    // did, it's not good, we're not continuing, can't recover from this
+                                                    // did, it's not good, we're not continuing, can't recover from this. Either a timeout occured,
+                                                    // an unexpected packet was received, wrong device ID, anything unexpected
 
 typedef struct comms_packet_t {     
     uint8_t length;     
