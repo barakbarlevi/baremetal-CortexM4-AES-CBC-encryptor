@@ -24,7 +24,7 @@ const BL_PACKET_READY_FOR_DATA_DATA0    = (0x48);
 const BL_PACKET_UPDATE_SUCCESSFUL_DATA0 = (0x54);
 const BL_PACKET_NACK_DATA0              = (0x59);
 
-const VECTOR_TABLE_SIZE                 = (0x01B0);  // XXXX EPISODE 12 34:35 he uses hexdump to calculate this for his vector table. MAKE SURE THIS IS RIGHT!
+const VECTOR_TABLE_SIZE                 = (0x01B0); // This is were DEADC0DE starts in firmware.bin
 
 const FWINFO_DEVICE_ID_OFFSET           = (VECTOR_TABLE_SIZE + (1 * 4));
 const FWINFO_LENGTH_OFFSET              = (VECTOR_TABLE_SIZE + (3 * 4));
