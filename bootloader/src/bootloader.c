@@ -7,19 +7,15 @@
 #include "comms.h"
 #include "bl-flash.h"
 #include "core/simple-timer.h"
+#include "core/firmware-info.h"
 
 #define UART_PORT     (GPIOA)
 #define RX_PIN       (GPIO3)        // UART RX
 #define TX_PIN       (GPIO2)        // UART TX
 
-#define BOOTLOADER_SIZE        (0x8000U)                          // 32KiB, reserved at the beginning of flash memory for our bootloader
-#define MAIN_APP_START_ADDRESS (FLASH_BASE + BOOTLOADER_SIZE)     // First address of our bootloader's main application
-#define MAX_FW_LENGTH          ((1024U * 512U) - BOOTLOADER_SIZE) // 512Kb flash (stm32f446xx)
-
 // Safety check that we get link error when we are overrunning the 32 KiB we specified for the bootloader
 // const uint8_t data[0x8000] = {0};
 
-#define DEVICE_ID  (0x42)      // Arbitrary value. One byte - allows the system to support 256 different devices. XXXX Arrange all code...
 #define SYNQ_SEQ_0 (0xc4)      // First byte in synchronization sequence. Chosen arbitrarily. These are just bytes that we expect to
 #define SYNQ_SEQ_1 (0x55)      // get in a row
 #define SYNQ_SEQ_2 (0x7e)
@@ -74,6 +70,10 @@ static void jump_to_main(void) {
     void_fn jump_fn = (void_fn)reset_vector;    // We interpert that address as a function and we call it. So we just execution to that place
     jump_fn();
     // XXXX Write also and comment about the other 2 solutions! XXXX
+}
+
+static bool validate_firmware_image() {
+    
 }
 
 static void bootloading_fail(void) {

@@ -66,7 +66,7 @@ OBJS		+= $(SRC_DIR)/timer.o
 
 # OBJS		+= $(SRC_DIR)/bootloader.o XXXX Check these ones out
 # OBJS		+= $(SRC_DIR)/timer.o
-# OBJS		+= $(SRC_DIR)/info.o
+OBJS		+= $(SRC_DIR)/info.o
 OBJS		+= $(SHARED_SRC_DIR)/core/system.o
 OBJS		+= $(SHARED_SRC_DIR)/core/uart.o
 OBJS		+= $(SHARED_SRC_DIR)/core/ring-buffer.o
