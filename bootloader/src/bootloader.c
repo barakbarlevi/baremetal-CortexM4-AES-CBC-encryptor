@@ -2,6 +2,7 @@
 #include <libopencm3/stm32/gpio.h>
 #include <libopencm3/stm32/rcc.h>
 #include <libopencm3/cm3/scb.h>
+#include <string.h>
 #include "common-defines.h"
 #include "core/uart.h"
 #include "core/system.h"
@@ -10,6 +11,7 @@
 #include "core/simple-timer.h"
 #include "core/firmware-info.h"
 #include "core/crc.h"
+#include "aes.h"
 
 #define UART_PORT     (GPIOA)
 #define RX_PIN       (GPIO3)        // UART RX
@@ -44,6 +46,12 @@ static uint8_t sync_seq[4] = {0};  // 4 bytes, initiated at 0
 static simple_timer_t timer;
 static comms_packet_t temp_packet;  // Will be used both to send and receive. We only do 1 of them at a time
 
+static const uint8_t secret_key[AES_BLOCK_SIZE] = {
+    0x00, 0x01, 0x02, 0x03,
+    0x04, 0x05, 0x06, 0x07,
+    0x08, 0x09, 0x0a, 0x0b,
+    0x0c, 0x0d, 0x0e, 0x0f
+};  // Right here in text in the firmware! very vulnerable
 
 static void gpio_setup(void) {
     rcc_periph_clock_enable(RCC_GPIOA);
@@ -74,15 +82,43 @@ static void jump_to_main(void) {
     // XXXX Write also and comment about the other 2 solutions! XXXX
 }
 
+/**
+ * @brief The CBC chaining operation. Take our current state (plaintext block), XOR it with the previous state (first: IV={0}, then CipherText[i]),
+ * run through AES, get back out an encrypted block
+ */
+static void aes_cbc_mac_step(AES_Block_t state, AES_Block_t prev_state, const AES_Block_t *key_schedule) {
+    // XOR them together
+    for(uint8_t i =0; i < AES_BLOCK_SIZE; i++) {
+        ((uint8_t*)state)[i] ^= ((uint8_t*)prev_state)[i];
+    }
+
+    AES_EncryptBlock(state, key_schedule);
+    
+    // Copy whatever comes out of state into prev_state
+    memcpy(prev_state, state, AES_BLOCK_SIZE);
+}
+
 static bool validate_firmware_image(void) {
     firmware_info_t* firmware_info = (firmware_info_t*)FWINFO_ADDRESS;
     if(firmware_info->sentinel != FWINFO_SENTINEL) { return false; }
     if(firmware_info->device_id != DEVICE_ID) { return false; }
 
-    // At this point this part is valid
-    const uint8_t* start_address = (const uint8_t*)FWINFO_VALIDATE_FROM; // A pointer to where we want to start validating from
-    const uint32_t computed_crc = crc32(start_address, FWINFO_VALIDATE_LENGTH(firmware_info->length));
-    return computed_crc == firmware_info->crc32;
+    // // This part got redundant when AES encryption was introduced
+    // // At this point this part is valid
+    // const uint8_t* start_address = (const uint8_t*)FWINFO_VALIDATE_FROM; // A pointer to where we want to start validating from
+    // const uint32_t computed_crc = crc32(start_address, FWINFO_VALIDATE_LENGTH(firmware_info->length));
+    // return computed_crc == firmware_info->crc32;
+
+    AES_Block_t round_keys[NUM_ROUND_KEYS_128]; // A block that represents our set of round keys
+    AES_KeySchedule128(secret_key, round_keys); // round_keys degrades to a pointer
+    // We should have our round keys at this point
+
+    AES_Block_t state = {0};
+    AES_Block_t prev_state = {0};   // IV is zeroed, and it's the first "prev_state"
+    uint8_t bytes_to_pad = 16 - (firmware_info->length % 16);
+    if(bytes_to_pad == 0) { bytes_to_pad = 16; } // Will add an extra block full of 0x10 if the last block was 16-aligned. That's standard. openssl does it
+
+    return false;
 }
 
 static void bootloading_fail(void) {

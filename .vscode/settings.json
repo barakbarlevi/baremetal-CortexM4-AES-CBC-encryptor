@@ -24,7 +24,8 @@
     "string_view": "c",
     "ranges": "c",
     "simple-timer.h": "c",
-    "firmware-info.h": "c"
+    "firmware-info.h": "c",
+    "crc.h": "c"
   },
   "cortex-debug.gdbPath": "/usr/bin/gdb-multiarch",
   "cortex-debug.variableUseNaturalFormat": false
