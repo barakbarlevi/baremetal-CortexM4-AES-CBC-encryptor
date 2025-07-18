@@ -1,6 +1,7 @@
 #include <libopencm3/stm32/memorymap.h>
 #include <libopencm3/stm32/gpio.h>
 #include <libopencm3/stm32/rcc.h>
+#include <libopencm3/cm3/scb.h>
 #include "common-defines.h"
 #include "core/uart.h"
 #include "core/system.h"
@@ -8,6 +9,7 @@
 #include "bl-flash.h"
 #include "core/simple-timer.h"
 #include "core/firmware-info.h"
+#include "core/crc.h"
 
 #define UART_PORT     (GPIOA)
 #define RX_PIN       (GPIO3)        // UART RX
@@ -72,8 +74,15 @@ static void jump_to_main(void) {
     // XXXX Write also and comment about the other 2 solutions! XXXX
 }
 
-static bool validate_firmware_image() {
-    
+static bool validate_firmware_image(void) {
+    firmware_info_t* firmware_info = (firmware_info_t*)FWINFO_ADDRESS;
+    if(firmware_info->sentinel != FWINFO_SENTINEL) { return false; }
+    if(firmware_info->device_id != DEVICE_ID) { return false; }
+
+    // At this point this part is valid
+    const uint8_t* start_address = (const uint8_t*)FWINFO_VALIDATE_FROM; // A pointer to where we want to start validating from
+    const uint32_t computed_crc = crc32(start_address, FWINFO_VALIDATE_LENGTH(firmware_info->length));
+    return computed_crc == firmware_info->crc32;
 }
 
 static void bootloading_fail(void) {
@@ -350,7 +359,13 @@ int main(void) {
     system_teardown();
     // No comms teardown needed
 
-    jump_to_main();         // Jump to the main function in our application portion
+    if(validate_firmware_image()){
+        jump_to_main();         // Jump to the main function in our application portion
+    } else {
+        // Reset the device
+        scb_reset_core();   // ARMv7 and above
+    }
+    
 
     // Never return, because we're going to route our whole execution to the other "space"'s main program
     return 0;

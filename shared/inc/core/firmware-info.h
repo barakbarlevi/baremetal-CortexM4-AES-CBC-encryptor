@@ -20,17 +20,15 @@
 // This struct will be placed in memory directly after the interrupt vector table.
 // The size of the vector table is the same for a particular chip. It may very between STM chips. 
 // Can see the size at vector_table_t from vector.h (episode 12 18:20 and probably earlier episodes too)  XXXX put this in the right place
+
+// We want to make sure that the size of the struct is a multiple of 16 bytes - will ease the calculations when implementing AES.
 typedef struct firmware_info_t {
     uint32_t sentinel;
     uint32_t device_id; // We're treating it like an 8-bit number. Got extra room for the future
     uint32_t version;
     uint32_t length;
-    uint32_t reserved0; // Future-proofing the structure
-    uint32_t reserved1;
-    uint32_t reserved2;
-    uint32_t reserved3;
-    uint32_t reserved4;
-    uint32_t crc32;
+    //uint32_t reserved[4]; // Future-proofing the structure. Not used
+    //uint32_t crc32;       // Not used
 }firmware_info_t;
 
 #endif  // INC_FIRMWARE_INFO_H

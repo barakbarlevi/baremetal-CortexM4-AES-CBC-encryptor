@@ -24,21 +24,16 @@ const BL_PACKET_READY_FOR_DATA_DATA0    = (0x48);
 const BL_PACKET_UPDATE_SUCCESSFUL_DATA0 = (0x54);
 const BL_PACKET_NACK_DATA0              = (0x59);
 
-const VECTOR_TABLE_SIZE                 = (0x01B0); // XXXX EPISODE 12 34:35 he uses hexdump to calculate this for his vector table. MAKE SURE THIS IS RIGHT!
+const VECTOR_TABLE_SIZE                 = (0x01B0);  // XXXX EPISODE 12 34:35 he uses hexdump to calculate this for his vector table. MAKE SURE THIS IS RIGHT!
 
 const FWINFO_DEVICE_ID_OFFSET           = (VECTOR_TABLE_SIZE + (1 * 4));
 const FWINFO_LENGTH_OFFSET              = (VECTOR_TABLE_SIZE + (3 * 4));
 
 const SYNC_SEQ  = Buffer.from([0xc4, 0x55, 0x7e, 0x10]);
 const DEFAULT_TIMEOUT  = (5000);
-/**
- * XXXX
- * const DEVICE_ID = (0x42) appears here? appeared in episode 11 9:30. did he erase this?
- */
-
 
 // Details about the serial port connection
-const serialPath            = "/dev/ttyACM0";   // May differ with different host platform
+const serialPath            = "/dev/ttyUSB0";
 const baudRate              = 115200;
 
 // CRC8 implementation. Same as the implementation on the target machine
@@ -46,7 +41,7 @@ const crc8 = (data: Buffer | Array<number>) => {
   let crc = 0;
 
   for (const byte of data) {
-    crc = (crc ^ byte) & 0xff;              // 0xff to change to 8-bit and not 32-bit
+    crc = (crc ^ byte) & 0xff;  // 0xff to change to 8-bit and not 32-bit
     for (let i = 0; i < 8; i++) {
       if (crc & 0x80) {
         crc = ((crc << 1) ^ 0x07) & 0xff;
@@ -89,21 +84,21 @@ class Logger {
 
 // Class for serialising and deserialising packets
 class Packet {
-  length: number;
-  data: Buffer;             // TypeScript data type. Has its own functions and methods
+  length: number; // TypeScript data type. Has its own functions and methods
+  data: Buffer;   // TypeScript data type. Has its own functions and methods
   crc: number;
 
   static retx = new Packet(1, Buffer.from([PACKET_RETX_DATA0]));
   static ack = new Packet(1, Buffer.from([PACKET_ACK_DATA0]));
 
-  // Don't have to pass crc when constructing a packet. If crc no passed, it'll automaticall be computed
+  // No need to pass crc when constructing a packet. If crc no passed, it'll automaticall be computed
   constructor(length: number, data: Buffer, crc?: number) {
     this.length = length;
     this.data = data;
 
     const bytesToPad = PACKET_DATA_BYTES - this.data.length;
     const padding = Buffer.alloc(bytesToPad).fill(0xff);
-    this.data = Buffer.concat([this.data, padding]);            // Padding to 16 bytes
+    this.data = Buffer.concat([this.data, padding]);  // Padding to 16 bytes
 
     if (typeof crc === 'undefined') {
       this.crc = this.computeCrc();
@@ -169,7 +164,7 @@ const consumeFromBuffer = (n: number) => {
 // This function fires whenever data is received over the serial port. The whole
 // packet state machine runs here.
 uart.on('data', data => {
-
+  
   console.log(`Received ${data.length} bytes through uart`);    // XXXX did he leave this? episode 7.3 26:12 Erased it in episode 11 21:12
 
   // Add the data to the packet
@@ -179,21 +174,21 @@ uart.on('data', data => {
 
   // Can we build a packet?
   while (rxBuffer.length >= PACKET_LENGTH) {
-    const raw = consumeFromBuffer(PACKET_LENGTH);     // Will give us a Node Buffer with 18 bytes in it
+    const raw = consumeFromBuffer(PACKET_LENGTH); // Will give us a Node Buffer with 18 bytes in it
     // console.log(raw);
     const packet = new Packet(raw[0], raw.slice(1, 1+PACKET_DATA_BYTES), raw[PACKET_CRC_INDEX]);
     const computedCrc = packet.computeCrc();
 
     // Need retransmission?
     if (packet.crc !== computedCrc) {
-      console.log(`CRC failed, computed 0x${computedCrc.toString(16)}, got 0x${packet.crc.toString(16)}`);  // XXXX why did he eventually comment this out?
+      // console.log(`CRC failed, computed 0x${computedCrc.toString(16)}, got 0x${packet.crc.toString(16)}`); // XXXX why did he eventually comment this out? LEAVE ALL OF THESE COMMENTED XXXX
       writePacket(Packet.retx);
       continue;
     }
 
     // Are we being asked to retransmit?
     if (packet.isRetx()) {
-      console.log(`Retransmitting last packet`);  // XXXX why did he eventually comment this out?
+      // console.log(`Retransmitting last packet`); // XXXX why did he eventually comment this out?
       // console.log(`Last packet:`, lastPacket);
       writePacket(lastPacket);
       continue;
@@ -228,7 +223,7 @@ const waitForPacket = async (timeout = DEFAULT_TIMEOUT) => {
     timeWaited += 1;
 
     if (timeWaited >= timeout) {
-      throw Error('Timed out waiting for packet');  // Not exiting. We might want to attemp receieve a packets
+      throw Error('Timed out waiting for packet'); // Not exiting. We might want to attemp receieve a packets
     }
   }
   return packets.splice(0, 1)[0];
@@ -236,7 +231,7 @@ const waitForPacket = async (timeout = DEFAULT_TIMEOUT) => {
 
 const waitForSingleBytePacket = (byte: number, timeout = DEFAULT_TIMEOUT) => (
   waitForPacket(timeout)
-    .then(packet => {     // When a packet comes in..
+    .then(packet => {   // When a packet comes in..
       // Check if it's the packet we're looking for
       if (packet.length !== 1 || packet.data[0] !== byte) {
         const formattedPacket = [...packet.toBuffer()].map(x => x.toString(16)).join(' ');
@@ -296,6 +291,7 @@ const main = async () => {
   // We need to know what's the length of the firmware that we're sending as an update.
   // It'll be passed to the target machine to make sure it has enough space for it.
   // XXXX what happened to .then(bin => bin.slice(BOOTLOADER_SIZE)); that was supposed to give us only the main application with the bootloader?
+
   Logger.info('Reading the firmware image...');
   const fwImage = await fs.readFile(path.join(process.cwd(), firmwareFilename));
   const fwLength = fwImage.length;
@@ -326,7 +322,7 @@ const main = async () => {
   await waitForSingleBytePacket(BL_PACKET_FW_LENGTH_REQ_DATA0);
   Logger.success('Firmware length request recieved');
 
-  const fwLengthPacketBuffer = Buffer.alloc(5); // 5: 1 byte for the message kind, 4 bytes to store a little-endian uint32 value represnting the size
+  const fwLengthPacketBuffer = Buffer.alloc(5);  // 5: 1 byte for the message kind, 4 bytes to store a little-endian uint32 value represnting the size
   fwLengthPacketBuffer[0] = BL_PACKET_FW_LENGTH_RES_DATA0;
   fwLengthPacketBuffer.writeUInt32LE(fwLength, 1);
   const fwLengthPacket = new Packet(5, fwLengthPacketBuffer);
@@ -353,7 +349,7 @@ const main = async () => {
                                                                                       // This "edge case" will happen at the edge of the firmware image.
                                                                                       // XXXX slice deprecated?
     const dataLength = dataBytes.length;
-    const dataPacket = new Packet(dataLength - 1, dataBytes);   // The -1 is because we're ignoring the top 4 bits. Our packet length can be represented by 4 bits
+    const dataPacket = new Packet(dataLength - 1, dataBytes); // The -1 is because we're ignoring the top 4 bits. Our packet length can be represented by 4 bits
     writePacket(dataPacket);  // xxxx in episode 11 45:19 wrote .toBuffer()
     bytesWritten += dataLength;
 

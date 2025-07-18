@@ -24,7 +24,7 @@ static void vector_setup(void) {
 }
 
 
-static void gpio_setup() {
+static void gpio_setup(void) {
     rcc_periph_clock_enable(RCC_GPIOA); // Enable the clock to this peripheral
     
     // Driving the pin directly using GPIO
@@ -45,15 +45,15 @@ static void gpio_setup() {
 
 
 /**
- * @brief Bad timing mechanism. The CPU doesn't do anything while it's waiting
+ * @brief Bad timing mechanism. The CPU doesn't do anything while it's waiting. Ended up not using it
  */
-static void delay_cycles(uint32_t cycles) {
-    for(uint32_t i = 0; i< cycles; i++) {
-        __asm__("nop"); // So the compiler doesn't optimize the loop out
-    }
-}
+// static void delay_cycles(uint32_t cycles) {
+//     for(uint32_t i = 0; i< cycles; i++) {
+//         __asm__("nop"); // So the compiler doesn't optimize the loop out
+//     }
+// }
 
-int main() {
+int main(void) {
 
     vector_setup();
 
