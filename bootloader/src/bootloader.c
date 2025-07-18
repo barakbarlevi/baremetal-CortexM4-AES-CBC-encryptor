@@ -118,6 +118,38 @@ static bool validate_firmware_image(void) {
     uint8_t bytes_to_pad = 16 - (firmware_info->length % 16);
     if(bytes_to_pad == 0) { bytes_to_pad = 16; } // Will add an extra block full of 0x10 if the last block was 16-aligned. That's standard. openssl does it
 
+    memcpy(state, firmware_info, AES_BLOCK_SIZE);    // Copying that block (firmware_info) into state
+    aes_cbc_mac_step(state, prev_state, round_keys); // Currently, prev_state is the zeroed IV
+
+    uint32_t offset = 0;
+    while(offset < firmware_info->length) {
+        // Go through the whole length of the firmware
+
+        // Are we at the point where we need to skip the info and the signature sections?
+        if( offset == (FWINFO_ADDRESS - MAIN_APP_START_ADDRESS)) {
+            // Gets us to being at the offset of FWINFO_ADDRESS
+            offset += AES_BLOCK_SIZE * 2; // Skipping two blocks: the fw info and the signature block
+            continue;
+        }
+
+        // Are we at the last block? (we'll have to pad it/after it)
+        if(firmware_info->length - offset > AES_BLOCK_SIZE) {
+            // The regular case, not last block
+            memcpy(state,(void*)(MAIN_APP_START_ADDRESS + offset), AES_BLOCK_SIZE);
+            aes_cbc_mac_step(state, prev_state, round_keys); 
+        } else {
+            // Last block, needs padding
+            if(bytes_to_pad == 16) {
+                memcpy(state,(void*)(MAIN_APP_START_ADDRESS + offset), AES_BLOCK_SIZE);
+                aes_cbc_mac_step(state, prev_state, round_keys);
+
+                memset(state, bytes_to_pad, AES_BLOCK_SIZE);      // The special case where we add a whole block of padding, cause we were 16-aligned
+                aes_cbc_mac_step(state, prev_state, round_keys);
+            } else {
+                // Just some bytes (not 16) to be padded
+            }
+        }
+    }
     return false;
 }
 
