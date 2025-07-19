@@ -11,7 +11,7 @@
 #define LED_PORT     (GPIOA)
 #define LED_PIN      (GPIO5)
 
-#define UART_PORT     (GPIOA)
+#define UART_PORT    (GPIOA)
 #define RX_PIN       (GPIO3)        // UART RX
 #define TX_PIN       (GPIO2)        // UART TX
 

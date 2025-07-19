@@ -3,6 +3,7 @@
 #include <libopencm3/stm32/rcc.h>
 #include <libopencm3/cm3/scb.h>
 #include <string.h>
+#include <stdio.h>
 #include "common-defines.h"
 #include "core/uart.h"
 #include "core/system.h"
@@ -25,7 +26,7 @@
 #define SYNQ_SEQ_2 (0x7e)
 #define SYNQ_SEQ_3 (0x10)
 
-#define DEFAULT_TIMEOUT (5000)  // 5 secs
+#define DEFAULT_TIMEOUT (60000)  // 60 secs
 
 typedef enum bl_state_t {
     BL_State_Sync,
@@ -86,22 +87,27 @@ static void jump_to_main(void) {
  * @brief The CBC chaining operation. Take our current state (plaintext block), XOR it with the previous state (first: IV={0}, then CipherText[i]),
  * run through AES, get back out an encrypted block
  */
-static void aes_cbc_mac_step(AES_Block_t state, AES_Block_t prev_state, const AES_Block_t *key_schedule) {
+static void aes_cbc_mac_step(AES_Block_t aes_state, AES_Block_t prev_state, const AES_Block_t *key_schedule) {
     // XOR them together
     for(uint8_t i =0; i < AES_BLOCK_SIZE; i++) {
-        ((uint8_t*)state)[i] ^= ((uint8_t*)prev_state)[i];
+        ((uint8_t*)aes_state)[i] ^= ((uint8_t*)prev_state)[i];
     }
 
-    AES_EncryptBlock(state, key_schedule);
+    AES_EncryptBlock(aes_state, key_schedule);
     
     // Copy whatever comes out of state into prev_state
-    memcpy(prev_state, state, AES_BLOCK_SIZE);
+    memcpy(prev_state, aes_state, AES_BLOCK_SIZE);
 }
 
 static bool validate_firmware_image(void) {
-    firmware_info_t* firmware_info = (firmware_info_t*)FWINFO_ADDRESS;
-    if(firmware_info->sentinel != FWINFO_SENTINEL) { return false; }
-    if(firmware_info->device_id != DEVICE_ID) { return false; }
+    firmware_info_t* firmware_info_ptr = (firmware_info_t*)FWINFO_ADDRESS;
+    const uint8_t* signature = (const uint8_t*)SIGNATURE_ADDRESS;
+
+    // printf("firmware_info_ptr = 0x%08lx\n", (unsigned long)firmware_info_ptr);
+    // printf("sizeof(vector_table_t) = %lu\n", (unsigned long)sizeof(vector_table_t));
+
+    if(firmware_info_ptr->sentinel != FWINFO_SENTINEL) { return false; }
+    if(firmware_info_ptr->device_id != DEVICE_ID) { return false; }
 
     // // This part got redundant when AES encryption was introduced
     // // At this point this part is valid
@@ -113,16 +119,17 @@ static bool validate_firmware_image(void) {
     AES_KeySchedule128(secret_key, round_keys); // round_keys degrades to a pointer
     // We should have our round keys at this point
 
-    AES_Block_t state = {0};
+    AES_Block_t aes_state = {0};
     AES_Block_t prev_state = {0};   // IV is zeroed, and it's the first "prev_state"
-    uint8_t bytes_to_pad = 16 - (firmware_info->length % 16);
+    uint8_t bytes_to_pad = 16 - (firmware_info_ptr->length % 16);
     if(bytes_to_pad == 0) { bytes_to_pad = 16; } // Will add an extra block full of 0x10 if the last block was 16-aligned. That's standard. openssl does it
 
-    memcpy(state, firmware_info, AES_BLOCK_SIZE);    // Copying that block (firmware_info) into state
-    aes_cbc_mac_step(state, prev_state, round_keys); // Currently, prev_state is the zeroed IV
+    // Encoding firmware_info with 0 as the previous state
+    memcpy(aes_state, firmware_info_ptr, AES_BLOCK_SIZE);    // Copying that block (firmware_info) into state
+    aes_cbc_mac_step(aes_state, prev_state, round_keys); // Currently, prev_state is the zeroed IV
 
     uint32_t offset = 0;
-    while(offset < firmware_info->length) {
+    while(offset < firmware_info_ptr->length) {
         // Go through the whole length of the firmware
 
         // Are we at the point where we need to skip the info and the signature sections?
@@ -133,24 +140,28 @@ static bool validate_firmware_image(void) {
         }
 
         // Are we at the last block? (we'll have to pad it/after it)
-        if(firmware_info->length - offset > AES_BLOCK_SIZE) {
+        if(firmware_info_ptr->length - offset > AES_BLOCK_SIZE) {
             // The regular case, not last block
-            memcpy(state,(void*)(MAIN_APP_START_ADDRESS + offset), AES_BLOCK_SIZE);
-            aes_cbc_mac_step(state, prev_state, round_keys); 
+            memcpy(aes_state,(void*)(MAIN_APP_START_ADDRESS + offset), AES_BLOCK_SIZE); // Copy AES_BLCOK SIZE from flash, in that offset, into state
+            aes_cbc_mac_step(aes_state, prev_state, round_keys);                        // Run the encryption on that
         } else {
             // Last block, needs padding
             if(bytes_to_pad == 16) {
-                memcpy(state,(void*)(MAIN_APP_START_ADDRESS + offset), AES_BLOCK_SIZE);
-                aes_cbc_mac_step(state, prev_state, round_keys);
+                memcpy(aes_state,(void*)(MAIN_APP_START_ADDRESS + offset), AES_BLOCK_SIZE);
+                aes_cbc_mac_step(aes_state, prev_state, round_keys);
 
-                memset(state, bytes_to_pad, AES_BLOCK_SIZE);      // The special case where we add a whole block of padding, cause we were 16-aligned
-                aes_cbc_mac_step(state, prev_state, round_keys);
+                memset(aes_state, AES_BLOCK_SIZE, AES_BLOCK_SIZE);      // The special case where we add a whole block of padding, cause we were 16-aligned
+                aes_cbc_mac_step(aes_state, prev_state, round_keys);
             } else {
                 // Just some bytes (not 16) to be padded
+                memcpy(aes_state,(void*)(MAIN_APP_START_ADDRESS + offset), AES_BLOCK_SIZE - bytes_to_pad);
+                memset((void*)(aes_state) + (AES_BLOCK_SIZE - bytes_to_pad), bytes_to_pad, bytes_to_pad);
+                aes_cbc_mac_step(aes_state, prev_state, round_keys);
             }
         }
+        offset += AES_BLOCK_SIZE;
     }
-    return false;
+    return memcmp(signature, aes_state, AES_BLOCK_SIZE) == 0; // If these two match, it means we're successfull
 }
 
 static void bootloading_fail(void) {
@@ -264,9 +275,9 @@ int main(void) {
                 sync_seq[3] = uart_read_byte();
 
                 bool is_match = sync_seq[0] == SYNQ_SEQ_0;
-                is_match = is_match & (sync_seq[1] = SYNQ_SEQ_1);
-                is_match = is_match & (sync_seq[2] = SYNQ_SEQ_2);
-                is_match = is_match & (sync_seq[3] = SYNQ_SEQ_3);
+                is_match = is_match && (sync_seq[1] == SYNQ_SEQ_1);
+                is_match = is_match && (sync_seq[2] == SYNQ_SEQ_2);
+                is_match = is_match && (sync_seq[3] == SYNQ_SEQ_3);
 
                 if (is_match) {
                     // Sync is observed
@@ -426,6 +437,8 @@ int main(void) {
     gpio_teardown();
     system_teardown();
     // No comms teardown needed
+    volatile int sdfsd = 33;
+    sdfsd++;
 
     if(validate_firmware_image()){
         jump_to_main();         // Jump to the main function in our application portion

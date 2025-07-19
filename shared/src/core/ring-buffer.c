@@ -1,5 +1,7 @@
 #include "core/ring-buffer.h"
 
+volatile int temp = 0;
+
 /**
  * @param size Assumed to be a power of 2
  */
@@ -27,7 +29,7 @@ bool ring_buffer_read(ring_buffer_t* rb, uint8_t* byte) {
     *byte = rb->buffer[local_read_index];
     local_read_index = (local_read_index + 1) & rb->mask;   // If we went off the end, the & operation with our mask will wrap it around to 0
     rb->read_index = local_read_index;
-
+    temp++;
     return true;
 }
 
@@ -52,5 +54,6 @@ bool ring_buffer_write(ring_buffer_t* rb, uint8_t byte) {
 
     rb->buffer[local_write_index] = byte;
     rb->write_index = next_write_index;
+    temp++;
     return true;
 }

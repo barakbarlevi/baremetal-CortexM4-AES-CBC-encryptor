@@ -30,10 +30,10 @@ const FWINFO_DEVICE_ID_OFFSET           = (VECTOR_TABLE_SIZE + (1 * 4));
 const FWINFO_LENGTH_OFFSET              = (VECTOR_TABLE_SIZE + (3 * 4));
 
 const SYNC_SEQ  = Buffer.from([0xc4, 0x55, 0x7e, 0x10]);
-const DEFAULT_TIMEOUT  = (5000);
+const DEFAULT_TIMEOUT  = (60000);
 
 // Details about the serial port connection
-const serialPath            = "/dev/ttyUSB0";
+const serialPath            = "/dev/ttyACM0";
 const baudRate              = 115200;
 
 // CRC8 implementation. Same as the implementation on the target machine
@@ -150,14 +150,20 @@ let packets: Packet[] = [];
 let lastPacket: Packet = new Packet(1, Buffer.from([0xff]));  // XXXX EPISODE 7.3 14:20 did he leave this like this?
 const writePacket = (packet: Packet) => {
   uart.write(packet.toBuffer());
+  console.log(`Inside WritePackeT(). Right after uart.write(packet.toBuffer()); with packet.toBuffer() = ${packet.toBuffer()}`);
   lastPacket = packet;
 };
 
 // Serial data buffer, with a splice-like function for consuming data
 let rxBuffer = Buffer.from([]);
 const consumeFromBuffer = (n: number) => {
-  const consumed = rxBuffer.slice(0, n);
-  rxBuffer = rxBuffer.slice(n);
+
+  //const consumed = rxBuffer.slice(0, n);
+  const consumed = rxBuffer.subarray(0,n);
+
+  //rxBuffer = rxBuffer.slice(n);
+  rxBuffer = rxBuffer.subarray(n);
+
   return consumed;
 }
 
@@ -176,7 +182,10 @@ uart.on('data', data => {
   while (rxBuffer.length >= PACKET_LENGTH) {
     const raw = consumeFromBuffer(PACKET_LENGTH); // Will give us a Node Buffer with 18 bytes in it
     // console.log(raw);
-    const packet = new Packet(raw[0], raw.slice(1, 1+PACKET_DATA_BYTES), raw[PACKET_CRC_INDEX]);
+    
+    //const packet = new Packet(raw[0], raw.slice(1, 1+PACKET_DATA_BYTES), raw[PACKET_CRC_INDEX]);
+    const packet = new Packet(raw[0], raw.subarray(1, 1+PACKET_DATA_BYTES), raw[PACKET_CRC_INDEX]);
+
     const computedCrc = packet.computeCrc();
 
     // Need retransmission?
@@ -252,10 +261,11 @@ const waitForSingleBytePacket = (byte: number, timeout = DEFAULT_TIMEOUT) => (
  * @param timeout 
  * @returns 
  */
-const syncWithBootloader = async (syncDelay = 500, timeout = DEFAULT_TIMEOUT) => {
+const syncWithBootloader = async (syncDelay = 120000, timeout = DEFAULT_TIMEOUT) => {
   let timeWaited = 0;
 
   while (true) {
+    console.log("Sending SYNC_SEQ:", Buffer.from(SYNC_SEQ));
     uart.write(SYNC_SEQ);
     await delay(syncDelay); // We send a "pulse" of data. The bootloader responds to it immediately, within less than millisecs, and we'll
                             // pick that up. The delay to assure we're not sending them constantly, and then if the bootloader recognizes
@@ -267,6 +277,7 @@ const syncWithBootloader = async (syncDelay = 500, timeout = DEFAULT_TIMEOUT) =>
       // Being here means that there is a packet and we can retrieve it
       const packet = packets.splice(0, 1)[0];
       if (packet.isSingleBytePacket(BL_PACKET_SYNC_OBSERVED_DATA0)) {
+        Logger.success('Synced');
         return;
       }
       Logger.error('Wrong packet observed during sync sequence');
@@ -278,6 +289,7 @@ const syncWithBootloader = async (syncDelay = 500, timeout = DEFAULT_TIMEOUT) =>
       process.exit(1);
     }
   }
+  
 }
 
 // Do everything in an async function so we can have loops, awaits etc
@@ -334,16 +346,42 @@ const main = async () => {
   // XXXX I SAW IT TAKES MINE MORE THAN HIS. Possible needs more delay time
   Logger.info('Waiting for a few seconds for main application to be erased...');
   await delay(1000);
-  Logger.info('Waiting for a few seconds for main application to be erased...');
+  Logger.info('Waiting for a few seconds for main application to be erased... (waited 1 sec)');
   await delay(1000);
-  Logger.info('Waiting for a few seconds for main application to be erased...');
+  Logger.info('Waiting for a few seconds for main application to be erased... (waited 2 sec)');
   await delay(1000);
+  Logger.info('Waiting for a few seconds for main application to be erased... (waited 3 sec)');
+  await delay(1000);
+  Logger.info('Waiting for a few seconds for main application to be erased... (waited 4 sec)');
+  await delay(1000);
+  Logger.info('Waiting for a few seconds for main application to be erased... (waited 5 sec)');
+  await delay(1000);
+  Logger.info('Waiting for a few seconds for main application to be erased... (waited 6 sec)');
+  await delay(1000);
+  Logger.info('Waiting for a few seconds for main application to be erased... (waited 7 sec)');
+  await delay(1000);
+  Logger.info('Waiting for a few seconds for main application to be erased... (waited 8 sec)');
+  await delay(1000);
+  Logger.info('Waiting for a few seconds for main application to be erased... (waited 9 sec)');
+  await delay(1000);
+  Logger.info('Waiting for a few seconds for main application to be erased... (waited 10 sec)');
+  await delay(1000);
+  Logger.info('Waiting for a few seconds for main application to be erased... (waited 11 sec)');
+  await delay(1000);
+  Logger.info('Waiting for a few seconds for main application to be erased... (waited 12 sec)');
+  await delay(1000);
+  Logger.info('Waiting for a few seconds for main application to be erased... (waited 13 sec)');
+  await delay(1000);
+  Logger.info('Waiting for a few seconds for main application to be erased... (waited 14 sec)');
+  await delay(1000);
+  Logger.info('Waiting for a few seconds for main application to be erased... (waited 15 sec)');
 
   let bytesWritten = 0;
   while (bytesWritten < fwLength) {
     await waitForSingleBytePacket(BL_PACKET_READY_FOR_DATA_DATA0);
 
-    const dataBytes = fwImage.slice(bytesWritten, bytesWritten + PACKET_DATA_BYTES);  // Try to grab 16 bytes and send them out.
+    const dataBytes = fwImage.subarray(bytesWritten, bytesWritten + PACKET_DATA_BYTES);
+    //const dataBytes = fwImage.slice(bytesWritten, bytesWritten + PACKET_DATA_BYTES);  // Try to grab 16 bytes and send them out.
                                                                                       // Note: when we use slice(), if we try to slice more data than available,
                                                                                       // the operation doesn't fail, it gives back as many bytes as could be.
                                                                                       // This "edge case" will happen at the edge of the firmware image.

@@ -5,7 +5,8 @@
 #include "core/ring-buffer.h"
 
 #define BAUD_RATE        (115200)
-#define RING_BUFFER_SIZE (128)          // For maximum of ~10ms of "latency" (time we can't read from the buffer for), at 115200 baud
+//#define RING_BUFFER_SIZE (128)          // For maximum of ~10ms of "latency" (time we can't read from the buffer for), at 115200 baud
+#define RING_BUFFER_SIZE (2 * 128)          // For maximum of ~10ms of "latency" (time we can't read from the buffer for), at 115200 baud
 
 //static uint8_t data_buffer = 0U;        // With this poor implementation we have a single byte in our buffer. This means that if we receive data and we
                                         // Haven't had time to read it from the buffer, then it's going to get over written and lost. If we were able
@@ -37,7 +38,7 @@ void usart2_isr(void) {
         //data_available = true;
 
         // Using our ring buffer
-        if(ring_buffer_write(&rb, (uint8_t)usart_recv(USART2))) {
+        if(!ring_buffer_write(&rb, (uint8_t)usart_recv(USART2))) {
             // Handle failure. Not so much that we can do at the moment, we probably need to increase buffer size. We can communite it to the program
         }
     }
