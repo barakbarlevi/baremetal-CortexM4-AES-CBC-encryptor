@@ -98,7 +98,8 @@ int main(void) {
         // keyboard buttons in quick succession, we would only see the first one appear in the terminal. We wrote the first one,
         // we were still busy spinning, we wrote the second one, and only then did we get back around to check if the UART had
         // any bytes available. We missed input under high workload
-        system_delay(1000);
+        
+        //system_delay(1000);
 
     }
     return 0;

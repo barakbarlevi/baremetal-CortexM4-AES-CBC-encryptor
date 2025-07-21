@@ -26,7 +26,8 @@
     "simple-timer.h": "c",
     "firmware-info.h": "c",
     "crc.h": "c",
-    "aes.h": "c"
+    "aes.h": "c",
+    "usart.h": "c"
   },
   "cortex-debug.gdbPath": "/usr/bin/gdb-multiarch",
   "cortex-debug.variableUseNaturalFormat": false

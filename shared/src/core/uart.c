@@ -5,8 +5,8 @@
 #include "core/ring-buffer.h"
 
 #define BAUD_RATE        (115200)
-//#define RING_BUFFER_SIZE (128)          // For maximum of ~10ms of "latency" (time we can't read from the buffer for), at 115200 baud
-#define RING_BUFFER_SIZE (2 * 128)          // For maximum of ~10ms of "latency" (time we can't read from the buffer for), at 115200 baud
+#define RING_BUFFER_SIZE (128)          // For maximum of ~10ms of "latency" (time we can't read from the buffer for), at 115200 baud
+// #define RING_BUFFER_SIZE (2 * 128)          // For maximum of ~10ms of "latency" (time we can't read from the buffer for), at 115200 baud
 
 //static uint8_t data_buffer = 0U;        // With this poor implementation we have a single byte in our buffer. This means that if we receive data and we
                                         // Haven't had time to read it from the buffer, then it's going to get over written and lost. If we were able
@@ -23,6 +23,7 @@
 
 static ring_buffer_t rb = {0U};
 static uint8_t data_buffer[RING_BUFFER_SIZE] = {0U};
+volatile int x = 0;
 
 // We need to implement the irq handler. The function that we need to implement is from vector.c --> IRQ_HANDLERS --> NVIC_USART2_IRQ --> usart2_isr()
 // When we received that inteuupt is when we received a byte. We can either have just received a single normally, or we could have received a byte
@@ -30,6 +31,7 @@ static uint8_t data_buffer[RING_BUFFER_SIZE] = {0U};
 // get data out of the pripheral fast enough, then it can have its own buffer overflow situation. In order for us to tell which of each of these two
 // occured, we need to read the flags from the UART peripheral.
 void usart2_isr(void) {
+    //x++;
     const bool overrun_occured = usart_get_flag(USART2, USART_FLAG_ORE) == 1;  // Overrun happened or not
     const bool received_data = usart_get_flag(USART2, USART_FLAG_RXNE) == 1;   // Received data or not
     if(received_data || overrun_occured) {
@@ -38,10 +40,14 @@ void usart2_isr(void) {
         //data_available = true;
 
         // Using our ring buffer
-        if(!ring_buffer_write(&rb, (uint8_t)usart_recv(USART2))) {
+        //uint32_t temp = (uint32_t)usart_recv(USART2);
+        uint16_t temp = usart_recv(USART2);
+        if(!ring_buffer_write(&rb, temp)) {
             // Handle failure. Not so much that we can do at the moment, we probably need to increase buffer size. We can communite it to the program
+            //x++;
         }
     }
+    
 }
 
 

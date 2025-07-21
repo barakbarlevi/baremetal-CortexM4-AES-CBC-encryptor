@@ -30,6 +30,12 @@ const FWINFO_DEVICE_ID_OFFSET           = (VECTOR_TABLE_SIZE + (1 * 4));
 const FWINFO_LENGTH_OFFSET              = (VECTOR_TABLE_SIZE + (3 * 4));
 
 const SYNC_SEQ  = Buffer.from([0xc4, 0x55, 0x7e, 0x10]);
+
+const SYNC_SEQ_0  = Buffer.from([0xc4]);
+const SYNC_SEQ_1  = Buffer.from([0x55]);
+const SYNC_SEQ_2  = Buffer.from([0x7e]);
+const SYNC_SEQ_3  = Buffer.from([0x10]);
+
 const DEFAULT_TIMEOUT  = (60000);
 
 // Details about the serial port connection
@@ -150,7 +156,7 @@ let packets: Packet[] = [];
 let lastPacket: Packet = new Packet(1, Buffer.from([0xff]));  // XXXX EPISODE 7.3 14:20 did he leave this like this?
 const writePacket = (packet: Packet) => {
   uart.write(packet.toBuffer());
-  console.log(`Inside WritePackeT(). Right after uart.write(packet.toBuffer()); with packet.toBuffer() = ${packet.toBuffer()}`);
+  //console.log(`Inside WritePackeT(). Right after uart.write(packet.toBuffer()); with packet = ${packet}`);
   lastPacket = packet;
 };
 
@@ -171,12 +177,12 @@ const consumeFromBuffer = (n: number) => {
 // packet state machine runs here.
 uart.on('data', data => {
   
-  console.log(`Received ${data.length} bytes through uart`);    // XXXX did he leave this? episode 7.3 26:12 Erased it in episode 11 21:12
+  //console.log(`Received ${data.length} bytes through uart`);    // XXXX did he leave this? episode 7.3 26:12 Erased it in episode 11 21:12
 
   // Add the data to the packet
   rxBuffer = Buffer.concat([rxBuffer, data]);
 
-  console.log(`Building packet`);    // XXXX did he leave this? episode 7.3 26:12
+  //console.log(`Building packet`);    // XXXX did he leave this? episode 7.3 26:12
 
   // Can we build a packet?
   while (rxBuffer.length >= PACKET_LENGTH) {
@@ -205,7 +211,7 @@ uart.on('data', data => {
 
     // If this is an ack, move on
     if (packet.isAck()) {
-      console.log(`It was an ack, nothing to do`);   // XXXX why did he eventually comment this out?
+      //console.log(`It was an ack, nothing to do`);   // XXXX why did he eventually comment this out?
       continue;
     }
 
@@ -218,7 +224,7 @@ uart.on('data', data => {
     }
 
     // Otherwise write the packet in to the buffer, and send an ack
-    console.log(`Storing packet and ack'ing`);   // XXXX why did he eventually comment this out?
+    //console.log(`Storing packet and ack'ing`);   // XXXX why did he eventually comment this out?
     packets.push(packet);
     writePacket(Packet.ack);
   }
@@ -261,12 +267,23 @@ const waitForSingleBytePacket = (byte: number, timeout = DEFAULT_TIMEOUT) => (
  * @param timeout 
  * @returns 
  */
-const syncWithBootloader = async (syncDelay = 120000, timeout = DEFAULT_TIMEOUT) => {
+const syncWithBootloader = async (syncDelay = 500, timeout = DEFAULT_TIMEOUT) => {
   let timeWaited = 0;
 
   while (true) {
     console.log("Sending SYNC_SEQ:", Buffer.from(SYNC_SEQ));
+    
     uart.write(SYNC_SEQ);
+    // const SYNC_DELAY_MS = 600;
+    // uart.write(SYNC_SEQ_0);
+    // await delay(SYNC_DELAY_MS);
+    // uart.write(SYNC_SEQ_1);
+    // await delay(SYNC_DELAY_MS);
+    // uart.write(SYNC_SEQ_2);
+    // await delay(SYNC_DELAY_MS);
+    // uart.write(SYNC_SEQ_3);
+    // await delay(SYNC_DELAY_MS);
+
     await delay(syncDelay); // We send a "pulse" of data. The bootloader responds to it immediately, within less than millisecs, and we'll
                             // pick that up. The delay to assure we're not sending them constantly, and then if the bootloader recognizes
                             // and sends one back we're already sending more bytes. If we do that, it'll mess up the syncronization we're trying
