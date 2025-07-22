@@ -27,7 +27,9 @@
     "firmware-info.h": "c",
     "crc.h": "c",
     "aes.h": "c",
-    "usart.h": "c"
+    "usart.h": "c",
+    "uart.h": "c",
+    "bl-flash.h": "c"
   },
   "cortex-debug.gdbPath": "/usr/bin/gdb-multiarch",
   "cortex-debug.variableUseNaturalFormat": false

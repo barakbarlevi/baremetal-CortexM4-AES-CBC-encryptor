@@ -153,7 +153,7 @@ const uart = new SerialPort({ path: serialPath, baudRate });
 // Won't implement a ring-buffer in this TypeScript file because we have automatic garbage collection and extending arrays
 let packets: Packet[] = [];
 
-let lastPacket: Packet = new Packet(1, Buffer.from([0xff]));  // XXXX EPISODE 7.3 14:20 did he leave this like this?
+let lastPacket: Packet = new Packet(1, Buffer.from([0xff]));
 const writePacket = (packet: Packet) => {
   uart.write(packet.toBuffer());
   //console.log(`Inside WritePackeT(). Right after uart.write(packet.toBuffer()); with packet = ${packet}`);
@@ -177,12 +177,12 @@ const consumeFromBuffer = (n: number) => {
 // packet state machine runs here.
 uart.on('data', data => {
   
-  //console.log(`Received ${data.length} bytes through uart`);    // XXXX did he leave this? episode 7.3 26:12 Erased it in episode 11 21:12
+  //console.log(`Received ${data.length} bytes through uart`);
 
   // Add the data to the packet
   rxBuffer = Buffer.concat([rxBuffer, data]);
 
-  //console.log(`Building packet`);    // XXXX did he leave this? episode 7.3 26:12
+  //console.log(`Building packet`);
 
   // Can we build a packet?
   while (rxBuffer.length >= PACKET_LENGTH) {
@@ -196,14 +196,14 @@ uart.on('data', data => {
 
     // Need retransmission?
     if (packet.crc !== computedCrc) {
-      // console.log(`CRC failed, computed 0x${computedCrc.toString(16)}, got 0x${packet.crc.toString(16)}`); // XXXX why did he eventually comment this out? LEAVE ALL OF THESE COMMENTED XXXX
+      // console.log(`CRC failed, computed 0x${computedCrc.toString(16)}, got 0x${packet.crc.toString(16)}`);
       writePacket(Packet.retx);
       continue;
     }
 
     // Are we being asked to retransmit?
     if (packet.isRetx()) {
-      // console.log(`Retransmitting last packet`); // XXXX why did he eventually comment this out?
+      // console.log(`Retransmitting last packet`);
       // console.log(`Last packet:`, lastPacket);
       writePacket(lastPacket);
       continue;
@@ -211,7 +211,7 @@ uart.on('data', data => {
 
     // If this is an ack, move on
     if (packet.isAck()) {
-      //console.log(`It was an ack, nothing to do`);   // XXXX why did he eventually comment this out?
+      //console.log(`It was an ack, nothing to do`);
       continue;
     }
 
@@ -224,7 +224,7 @@ uart.on('data', data => {
     }
 
     // Otherwise write the packet in to the buffer, and send an ack
-    //console.log(`Storing packet and ack'ing`);   // XXXX why did he eventually comment this out?
+    //console.log(`Storing packet and ack'ing`);
     packets.push(packet);
     writePacket(Packet.ack);
   }
@@ -262,7 +262,7 @@ const waitForSingleBytePacket = (byte: number, timeout = DEFAULT_TIMEOUT) => (
 );
 
 /**
- * @brief Observe the sync sequence: send the sync sequence and get the xxxx
+ * @brief Observe the sync sequence: send the sync sequence and get the corresponding message back, indicating we can continue
  * @param syncDelay 
  * @param timeout 
  * @returns 
@@ -319,8 +319,7 @@ const main = async () => {
 
   // We need to know what's the length of the firmware that we're sending as an update.
   // It'll be passed to the target machine to make sure it has enough space for it.
-  // XXXX what happened to .then(bin => bin.slice(BOOTLOADER_SIZE)); that was supposed to give us only the main application with the bootloader?
-
+  
   Logger.info('Reading the firmware image...');
   const fwImage = await fs.readFile(path.join(process.cwd(), firmwareFilename));
   const fwLength = fwImage.length;
@@ -355,12 +354,12 @@ const main = async () => {
   fwLengthPacketBuffer[0] = BL_PACKET_FW_LENGTH_RES_DATA0;
   fwLengthPacketBuffer.writeUInt32LE(fwLength, 1);
   const fwLengthPacket = new Packet(5, fwLengthPacketBuffer);
-  writePacket(fwLengthPacket);  // xxxx in episode 11 36:30 wrote .toBuffer()
+  writePacket(fwLengthPacket);
   Logger.info('Responding with firmware length');
 
   // If that's unsuccessfull, meaning the firmware length is non-adequate, we'll get a NACK. 
   // If it's successfull, that's the moment the bootloader is going to start erasing its main app from flash
-  // XXXX I SAW IT TAKES MINE MORE THAN HIS. Possible needs more delay time
+  // It seemed to take my machine longer time to erase flash. Went for this overkill
   Logger.info('Waiting for a few seconds for main application to be erased...');
   await delay(1000);
   Logger.info('Waiting for a few seconds for main application to be erased... (waited 1 sec)');
@@ -402,10 +401,10 @@ const main = async () => {
                                                                                       // Note: when we use slice(), if we try to slice more data than available,
                                                                                       // the operation doesn't fail, it gives back as many bytes as could be.
                                                                                       // This "edge case" will happen at the edge of the firmware image.
-                                                                                      // XXXX slice deprecated?
+                                                                                      
     const dataLength = dataBytes.length;
     const dataPacket = new Packet(dataLength - 1, dataBytes); // The -1 is because we're ignoring the top 4 bits. Our packet length can be represented by 4 bits
-    writePacket(dataPacket);  // xxxx in episode 11 45:19 wrote .toBuffer()
+    writePacket(dataPacket);
     bytesWritten += dataLength;
 
     Logger.info(`Wrote ${dataLength} bytes (${bytesWritten}/${fwLength})`);

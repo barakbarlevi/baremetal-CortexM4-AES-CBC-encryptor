@@ -25,7 +25,7 @@ static comms_packet_t last_transmitted_packet = { .length = 0, .data = {0}, .crc
 // isn't just a single byte, but of comms_packet_t.
 // NOTE: This is a classic motivation example for c++ templates...
 // NOTE: The only time we're ever writing packets is when we're in comms_update().
-//       The only time we're ever reading packets is when XXXX another part of the firmware XXXX.
+//       The only time we're ever reading packets is when we're another part of the firmware, for sure not comms_update().
 //       As long as it's kept this way, we don't even have to worry about interrupts and ISRs here. We know
 //       That the calls to read and write (packet) - corresponding to pulling data out of the ring buffer and pushing data into it,
 //       are not expected to have to deal with ocncurrency issues. They will for sure happen sequentially. Since we're doing bare

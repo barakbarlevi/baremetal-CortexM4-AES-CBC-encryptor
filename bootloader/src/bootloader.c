@@ -103,9 +103,6 @@ static bool validate_firmware_image(void) {
     firmware_info_t* firmware_info_ptr = (firmware_info_t*)FWINFO_ADDRESS;
     const uint8_t* signature = (const uint8_t*)SIGNATURE_ADDRESS;
 
-    // printf("firmware_info_ptr = 0x%08lx\n", (unsigned long)firmware_info_ptr);
-    // printf("sizeof(vector_table_t) = %lu\n", (unsigned long)sizeof(vector_table_t));
-
     if(firmware_info_ptr->sentinel != FWINFO_SENTINEL) { return false; }
     if(firmware_info_ptr->device_id != DEVICE_ID) { return false; }
 
