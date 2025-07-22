@@ -9,4 +9,4 @@ XXXX incorporate signed.bin from google drawings, Writing: This is the image we 
 XXXX The author LE'ITIM TCHUFOT refers to the high-level C program of the main application, which implements simple PWM, as "firmware", and to the high-level C program that is incharge of checking a valid AES signature and redirecting execution to the main app as "bootloader".
 XXXX put the above relatively in the top of the readme
 
-![XXXX](flash layout.jpg)
+![XXXX](flash_layout.jpg)
