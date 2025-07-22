@@ -81,8 +81,8 @@ print(f"Signed firmware version {version_hex}")
 print(f"key      = {signing_key}") 
 print(f"signature= {signature_text}") 
 
-os.remove(signing_image_filename)
-os.remove(encrypted_filename)
+# os.remove(signing_image_filename)
+# os.remove(encrypted_filename)
 
 # Patch the signature back into the original firmware image, accounting for the padded length of the encoded firmware. The last block is padded to 16 bytes. If it
 # was exactly 16 bytes, it'll be padded with a whole additional block
