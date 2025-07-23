@@ -6,8 +6,8 @@ Bare-metal programming the Cortex-M4 core on the STM32F446RE MCU, leveraging lib
 This process can be thought of as a small scale, not production-suitable, analogy of a real life case where we have a chip on a PCB with a USB port. We tell the user they can plug it in and run some piece of code, possibly even from a web browser, which serves as an authenticated firmware update mechanism.  
 
 > ⚠️ NOTE: Any 3rd party who wants to get involved with this mechanism, will be able to do it quite easily, as long as they’re able to dump the device’s flash. The secret, symmetric key lies there, which is a major disadvantage of the implementation, and it  illustrates the risk of storing secrets in plaintext on insecure hardware. This would make the device practically open for anyone who dumped the secret key to sign their code and run it on the device.  While not secure or production-ready, the project demonstrates the concept of verifying firmware integrity using symmetric cryptography.  
-  
 <br>
+
 ### Outline
 Building up to the goal described above, several components were written and tested:  
 1. **Application firmware**  
@@ -20,8 +20,8 @@ A lightweight implementation of a ring buffer that stores data transmitted to th
 Designing a custom packet protocol and implementing it to standardize the communication between the host and the target. This serves as a basic example of a synchronized communication scheme, such as those involving framing, acknowledgment, and command-response patterns.  
 5. **Bootloader**  
 A C program that serves as the target machine side of the application code “loading”  mechanism. Loading as in transferring over serial to flash, and initiating execution. This is referred to as the “Bootloader”, though it has nothing to do with the pre-programmed piece of code within the MCU’s ROM or any of its boot pins. It acts as a user defined first stage boot loader. If the CBC-MAC of the transferred data checks out fine, execution is redirected to the main application. Else, the core resets  
-  
 <br>
+
 ### Build and run
 ```bash
 cd bootloader
