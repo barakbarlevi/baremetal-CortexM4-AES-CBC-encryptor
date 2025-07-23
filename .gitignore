@@ -1,0 +1,23 @@
+*~
+*.o
+*.d
+#*.bin
+#*.elf
+*.hex
+*.srec
+*.list
+#*.map
+*.stylecheck
+*.png
+*.jpg
+
+generated.*.ld
+.gdb_history
+.DS_Store
+
+# Project files from idea/netbeans/eclipse
+nbproject/
+.idea/
+.project
+
+node_modules/
