@@ -8,8 +8,8 @@
 *.list
 #*.map
 *.stylecheck
-*.png
-*.jpg
+#*.png
+#*.jpg
 
 generated.*.ld
 .gdb_history

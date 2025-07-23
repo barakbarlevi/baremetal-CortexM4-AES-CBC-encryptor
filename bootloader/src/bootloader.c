@@ -78,9 +78,8 @@ static void jump_to_main(void) {
     uint32_t* reset_vector_entry = (uint32_t*)(MAIN_APP_START_ADDRESS + sizeof(uint32_t)); // The first entry in the table isn't the reset vector, it's what sould become the Stack Pointer. It's the second enter, so we add 4
     uint32_t* reset_vector = (uint32_t*)(*reset_vector_entry);
 
-    void_fn jump_fn = (void_fn)reset_vector;    // We interpert that address as a function and we call it. So we just execution to that place
+    void_fn jump_fn = (void_fn)reset_vector;    // We interpert that address as a function and we call it. So we just redirect execution to that place
     jump_fn();
-    // XXXX Write also and comment about the other 2 solutions! XXXX
 }
 
 /**
