@@ -294,7 +294,7 @@ const syncWithBootloader = async (syncDelay = 500, timeout = DEFAULT_TIMEOUT) =>
       // Being here means that there is a packet and we can retrieve it
       const packet = packets.splice(0, 1)[0];
       if (packet.isSingleBytePacket(BL_PACKET_SYNC_OBSERVED_DATA0)) {
-        Logger.success('Synced');
+        //Logger.success('Synced');
         return;
       }
       Logger.error('Wrong packet observed during sync sequence');
