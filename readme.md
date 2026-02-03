@@ -10,7 +10,7 @@ This process can be thought of as a small scale, not production-suitable, analog
 ### Outline
 Building up to the goal described above, several components were written and tested:  
 1. **Application firmware**  
-"A custom C program that utilizes a Timer peripheral to configure a PWM signal which changes the brightness of an on-board LED. This is referred to as the “application”, “main application”, “firmware” or “fw”, analogous to a real life product’s functionality  
+A custom C program that utilizes a Timer peripheral to configure a PWM signal which changes the brightness of an on-board LED. This is referred to as the “application”, “main application”, “firmware” or “fw”, analogous to a real life product’s functionality  
 2. **UART Driver**  
 A basic UART driver on the MCU for communication with a host PC over serial.  
 3. **Ring buffer**  
