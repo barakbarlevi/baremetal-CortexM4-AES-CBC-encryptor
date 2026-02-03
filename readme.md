@@ -1,6 +1,5 @@
 ![](flash_layout.png)
-This is a complete follow along with the [bare metal programming series](https://www.youtube.com/playlist?list=PLP29wDx6QmW7HaCrRydOnxcy8QmW0SNdQ) by Francis Stokes. The sole reason that I didn’t fork his repo, is that instead I wrote it all from scratch together with the series, documenting my comments in the process.  
-### Goal
+## Goal
 Bare-metal programming the Cortex-M4 core on the STM32F446RE MCU, leveraging libopencm3, we’ll implement AES encryption and compute a CBC-MAC based on custom code that runs immediately after the MCU resets. We’ll implement a “loading” mechanism that will allow us to send data over serial connection from a host machine to the target, and have the MCU accept it only if the CBC-MAC passed matches the one computed on the target using a symmetric secret key.  
 
 This process can be thought of as a small scale, not production-suitable, analogy of a real life case where we have a chip on a PCB with a USB port. We tell the user they can plug it in and run some piece of code, possibly even from a web browser, which serves as an authenticated firmware update mechanism.  
