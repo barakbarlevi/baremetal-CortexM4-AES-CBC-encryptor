@@ -12,7 +12,7 @@
 
 6. On power-up or reset, the MCU loads the stack pointer from `0x0800_0000` and load the program counter from the `0x0800_0004` reset handler. It then initializes minimal hardware that enables it to implement a communication protocol with the host machine over uart. It runs a state machine that either times out and jumps to the current firmware, or receives a stream of bytes from the host. The stream of bytes is interpreted as a new image, the bootloader’s state machine checks its validity, writes the payload to flash and encrypts it. If the encrypted result is equal to the one streamed from the host, we load the firmware’s stack pointer and program counter from the right memory addresses, and jump to the firmware’s main().
 
-7. In the firmware's main funcion, `SCB_VTOR = BOOTLOADER_SIZE;` is immediately executed, to tell the CPU that interrupt vectors now start at 0x08008000 and not 0x08000000. If the encryption match check fails, we reset the core.
+7. In the firmware's main funcion, `SCB_VTOR = BOOTLOADER_SIZE;` is immediately executed, to tell the CPU that interrupt vectors now start at `0x08008000` and not `0x08000000`. If the encryption match check fails, we reset the core.
 
 
 ## Goal
