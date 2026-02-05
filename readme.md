@@ -1,4 +1,4 @@
-![](<img width="1533" height="1141" alt="Image" src="https://github.com/user-attachments/assets/357b4ae3-c582-465c-98f2-cef6e4bc6238" />)
+<img src="https://github.com/user-attachments/assets/357b4ae3-c582-465c-98f2-cef6e4bc6238" width="1533" alt="Image description">
 
 1. The linker script of the bootloader places its vector table at the beginning of flash `0x0800_0000` and the rest of the program immediately after. It also limits the length of the binary to 32K and uses python to pad with zeros if needed.
 
